@@ -1,0 +1,6 @@
+{
+  "name": "JHALEX URBAN HOUSE PRO",
+  "description": "Sistema integral de ventas, inventario, administración y control financiero profesional 100% offline para tiendas de moda urbana.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
