@@ -14,6 +14,41 @@ export interface CompanyConfig {
   responsible: string;
   commercialInfo: string;
   invoiceMessage: string;
+
+  // Colombia Legal Info
+  razonSocial?: string;
+  tipoSociedad?: string;
+  dv?: string; // dígito verificación
+  ccmercio?: string; // cámara de comercio
+  matriculaMercantil?: string;
+  fechaRegistroCC?: string;
+  ciudadRegistroCC?: string;
+  direccionComercial?: string;
+  telefonoEmpresarial?: string;
+  correoEmpresarial?: string;
+  
+  // Tributaria configuration
+  regimenTributario?: string;
+  responsabilidadesFiscales?: string;
+  actividadCIIU?: string;
+  ivaPercent?: number; // e.g. 19%
+
+  // Facturación electrónica resolution fields
+  proveedorTecnologico?: string;
+  resolucionDian?: string;
+  resolucionFecha?: string;
+  prefijoFactura?: string;
+  numeracionDesde?: number;
+  numeracionHasta?: number;
+  numeracionSiguiente?: number;
+  dianKey?: string;
+  dianEnvironment?: "PRUEBAS" | "PRODUCCION";
+
+  // Watermark options
+  watermarkEnabled?: boolean;
+  watermarkOpacity?: number;
+  watermarkScale?: number;
+  watermarkPosition?: "CENTER" | "TOP_LEFT" | "TOP_RIGHT" | "BOTTOM_LEFT" | "BOTTOM_RIGHT";
 }
 
 export interface ProductTypeCategory {
@@ -95,6 +130,8 @@ export interface Client {
   email: string;
   points: number;
   coupons: Coupon[];
+  clientType?: "CONSUMIDOR_FINAL" | "OCASIONAL_ELECTRONICA" | "REGISTRADO";
+  isOccasional?: boolean;
 }
 
 export interface Coupon {
@@ -169,6 +206,11 @@ export interface Sale {
   originalTotal?: number;
   roundedTotal?: number;
   roundingDifference?: number;
+  clientType?: string;
+  occasionalClientDocType?: string;
+  occasionalClientDocNum?: string;
+  occasionalClientEmail?: string;
+  occasionalClientPhone?: string;
 }
 
 export interface CashTransaction {

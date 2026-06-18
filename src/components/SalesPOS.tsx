@@ -84,6 +84,30 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
     email: ""
   });
 
+  // Colombia Compliance & Occasional Cliente States
+  const [clientCategory, setClientCategory] = useState<"CONSUMIDOR" | "OCASIONAL" | "REGISTRADO">("CONSUMIDOR");
+  const [occasionalClientInfo, setOccasionalClientInfo] = useState({
+    docType: "CC",
+    document: "",
+    name: "",
+    email: "",
+    phone: ""
+  });
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+
+  const handleOccasionalDocChange = (docVal: string) => {
+    const cleanDoc = docVal.trim();
+    setOccasionalClientInfo(prev => ({ ...prev, document: cleanDoc }));
+    if (!cleanDoc) return;
+    const found = clientes.find(c => c.document.trim() === cleanDoc);
+    if (found) {
+      setClientCategory("REGISTRADO");
+      setSelectedClientId(found.id);
+      setSuccessAlert(`¡Cliente existente autodetectado con ID ${found.name}!`);
+      setTimeout(() => setSuccessAlert(""), 2000);
+    }
+  };
+
   // Current newly generated invoice state to show in modal
   const [activeInvoice, setActiveInvoice] = useState<Sale | null>(null);
 
@@ -275,6 +299,70 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
     setTimeout(() => setSuccessAlert(""), 2000);
   };
 
+  // JHALEX OCCASIONAL CONVERSION TO LOYALTY SYSTEM
+  const convertOccasionalToRegistered = (sale: Sale) => {
+    if (!sale) return;
+    const documentNum = sale.occasionalClientDocNum || sale.clientId.replace("TEMP_", "");
+    
+    // Check if client with this document already exists
+    const duplicate = clientes.find(c => c.document.trim() === documentNum.trim());
+    if (duplicate) {
+      // Just migrate client selection and map previous sales
+      const allSales = db.getSales();
+      const updatedSales = allSales.map(item => {
+        if (item.clientId === sale.clientId || item.occasionalClientDocNum === documentNum) {
+          return {
+            ...item,
+            clientId: duplicate.id,
+            clientName: duplicate.name,
+            clientType: "REGISTRADO"
+          };
+        }
+        return item;
+      });
+      localStorage.setItem("pos_sales", JSON.stringify(updatedSales));
+      refreshData();
+      setSuccessAlert(`¡Facturas asociadas al cliente registrado ${duplicate.name}!`);
+      setTimeout(() => setSuccessAlert(""), 2000);
+      return;
+    }
+
+    const cleanId = "C_" + Date.now();
+    const freshClient: Client = {
+      id: cleanId,
+      name: sale.clientName,
+      document: documentNum,
+      phone: sale.occasionalClientPhone || "",
+      address: "Cúcuta, Colombia",
+      email: sale.occasionalClientEmail || "",
+      points: Math.floor(sale.total / 10000), // Give points for previous purchase!
+      coupons: [],
+      clientType: "REGISTRADO"
+    };
+
+    db.saveCliente(freshClient, currentUserName, currentRole);
+    
+    // Update previous transactions
+    const allSales = db.getSales();
+    const updatedSales = allSales.map(item => {
+      const matchDoc = item.occasionalClientDocNum === documentNum || item.clientId === sale.clientId;
+      if (matchDoc) {
+        return {
+          ...item,
+          clientId: freshClient.id,
+          clientName: freshClient.name,
+          clientType: "REGISTRADO"
+        };
+      }
+      return item;
+    });
+    localStorage.setItem("pos_sales", JSON.stringify(updatedSales));
+
+    refreshData();
+    setSuccessAlert(`¡Cliente ocasional ${freshClient.name} convertido en Cliente Registrado!`);
+    setTimeout(() => setSuccessAlert(""), 3500);
+  };
+
   // Complete POS sale submit
   const handleCheckout = () => {
     if (cart.length === 0) {
@@ -290,23 +378,56 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
     }
 
     const seller = vendedores.find(v => v.id === selectedSellerId);
-    const client = clientes.find(c => c.id === selectedClientId);
+    
+    let clientId = "GENERICO";
+    let clientName = "Consumidor Final";
+    let calculatedClientType = "CONSUMIDOR_FINAL";
+    
+    let occasionalEmail = "";
+    let occasionalPhone = "";
+    let occasionalDocType = "";
+    let occasionalDocNum = "";
+
+    if (clientCategory === "OCASIONAL") {
+      if (!occasionalClientInfo.document || !occasionalClientInfo.name) {
+        triggerError("Para factura electrónica ocasional, se requiere ingresar Documento y Nombre.");
+        return;
+      }
+      clientId = "TEMP_" + occasionalClientInfo.document;
+      clientName = occasionalClientInfo.name;
+      calculatedClientType = "OCASIONAL_ELECTRONICA";
+      occasionalEmail = occasionalClientInfo.email;
+      occasionalPhone = occasionalClientInfo.phone;
+      occasionalDocType = occasionalClientInfo.docType;
+      occasionalDocNum = occasionalClientInfo.document;
+    } else if (clientCategory === "REGISTRADO") {
+      const matchedClient = clientes.find(c => c.id === selectedClientId);
+      if (!matchedClient || matchedClient.id === "GENERICO") {
+        triggerError("Seleccione un cliente registrado válido o elija otra categoría.");
+        return;
+      }
+      clientId = matchedClient.id;
+      clientName = matchedClient.name;
+      calculatedClientType = matchedClient.clientType || "REGISTRADO";
+    }
 
     const checkoutsDate = new Date();
     
-    // Generate consecutive-like clean invoice number
-    const totalPreviousSales = sales.length;
-    const cleanInvoiceNumber = `FAC-${1000 + totalPreviousSales + 1}`;
+    // Generate consecutive-like clean invoice number using Colombian DIAN settings
+    const company = db.getCompany();
+    const prefix = company.prefijoFactura || "FAC";
+    const nextNum = company.numeracionSiguiente ?? (1000 + sales.length + 1);
+    const cleanInvoiceNumber = `${prefix}-${nextNum}`;
 
     let creditDetails: CreditDetails | undefined = undefined;
     if (saleType === SaleType.CREDIT) {
-      if (!client || client.id === "GENERICO") {
-        triggerError("Para ventas a crédito DEBES registrar o seleccionar un cliente real.");
+      if (clientId === "GENERICO") {
+        triggerError("Para ventas a crédito DEBES registrar o seleccionar un cliente real o bien ocasional con datos.");
         return;
       }
       creditDetails = {
-        clientId: client.id,
-        clientName: client.name,
+        clientId: clientId,
+        clientName: clientName,
         totalAmount: roundingData.roundedTotal,
         initialDeposit: Number(creditInitialDeposit),
         pendingBalance: roundingData.roundedTotal - Number(creditInitialDeposit),
@@ -323,8 +444,13 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
       time: checkoutsDate.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }),
       sellerId: seller ? seller.id : "SELLER_GEN",
       sellerName: seller ? seller.name : "Vendedor de Turno",
-      clientId: client ? client.id : "GENERICO",
-      clientName: client ? client.name : "Consumidor Final",
+      clientId,
+      clientName,
+      clientType: calculatedClientType,
+      occasionalClientDocType: occasionalDocType,
+      occasionalClientDocNum: occasionalDocNum,
+      occasionalClientEmail: occasionalEmail,
+      occasionalClientPhone: occasionalPhone,
       items: cart,
       subtotal: cartTotals.subtotal,
       discountPercent: discountPercent,
@@ -341,6 +467,14 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
 
     // Save transaction
     db.createSale(newSale, currentUserName, currentRole);
+
+    // Update DIAN Invoice consecutive numbering sequentially
+    if (company.numeracionSiguiente !== undefined) {
+      db.saveCompany({
+        ...company,
+        numeracionSiguiente: nextNum + 1
+      }, currentUserName, currentRole);
+    }
 
     // If Efectivo (Cash) payment, automatically trigger cash drawer opening signal
     if (paymentMethod === PaymentMethod.CASH && saleType === SaleType.CASH) {
@@ -581,8 +715,17 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
                       {s.status}
                     </span>
                   </div>
-                  <div className="text-gray-400 text-[10px] mt-0.5">
-                    Cliente: {s.clientName} • Vendedor: {s.sellerName} • {s.date} {s.time}
+                  <div className="text-gray-400 text-[10px] mt-0.5 flex flex-wrap items-center gap-1">
+                    <span>Cliente: {s.clientName} • Vendedor: {s.sellerName} • {s.date} {s.time}</span>
+                    {s.clientType === "OCASIONAL_ELECTRONICA" && (
+                      <button
+                        onClick={() => convertOccasionalToRegistered(s)}
+                        className="inline-flex items-center gap-0.5 text-[9px] bg-indigo-50 hover:bg-indigo-150 text-indigo-700 hover:text-indigo-950 border border-indigo-200 px-1 py-0.2 rounded font-extrabold transition-colors duration-150"
+                        title="Convertir los datos de este ticket en un perfil de cliente registrado para acumular puntos"
+                      >
+                        <UserPlus className="w-2.5 h-2.5 text-indigo-600" /> Registrar Cliente
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -648,22 +791,170 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
               </select>
             </div>
 
-            {/* Cliente */}
-            <div className="grid grid-cols-3 gap-2 items-center">
-              <span className="text-xs font-semibold text-gray-500">Cliente:</span>
-              <select
-                value={selectedClientId}
-                onChange={(e) => {
-                  setSelectedClientId(e.target.value);
-                  setDiscountPercent(0); // Reset coupon discount
-                }}
-                className="col-span-2 bg-gray-50 border rounded px-2.5 py-1.5 text-xs text-gray-800"
-              >
-                <option value="GENERICO">Consumidor Final (Genérico)</option>
-                {clientes.filter(c => c.id !== "GENERICO").map((c) => (
-                  <option key={c.id} value={c.id}>{c.name} - #{c.document}</option>
-                ))}
-              </select>
+            {/* JHALEX PREMIUM CLIENT CATEGORY SELECTOR */}
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Categoría de Facturación</span>
+              <div className="grid grid-cols-3 gap-1 bg-gray-50 p-1 rounded-xl border border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientCategory("CONSUMIDOR");
+                    setSelectedClientId("C001");
+                  }}
+                  className={`py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all duration-150 ${
+                    clientCategory === "CONSUMIDOR"
+                      ? "bg-white text-gray-950 shadow-xs border border-gray-200"
+                      : "text-gray-500 hover:text-gray-950"
+                  }`}
+                >
+                  Genérico
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientCategory("OCASIONAL");
+                  }}
+                  className={`py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all duration-150 ${
+                    clientCategory === "OCASIONAL"
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "text-gray-500 hover:text-indigo-600"
+                  }`}
+                >
+                  Ocasional
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientCategory("REGISTRADO");
+                  }}
+                  className={`py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all duration-150 ${
+                    clientCategory === "REGISTRADO"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-gray-500 hover:text-emerald-600"
+                  }`}
+                >
+                  Registrado
+                </button>
+              </div>
+
+              {/* CASE 1: Consumidor Final (Generic) */}
+              {clientCategory === "CONSUMIDOR" && (
+                <div className="bg-gray-50 p-3 rounded-xl border border-dashed border-gray-200 text-center space-y-1">
+                  <span className="text-[11px] font-bold text-gray-700 block">Consumidor Final (Venta POS de Mostrador)</span>
+                  <p className="text-[9px] text-gray-400">Venta rápida tradicional sin registrar información de contacto.</p>
+                </div>
+              )}
+
+              {/* CASE 2: Factura Electrónica Ocasional (Quick creation fields) */}
+              {clientCategory === "OCASIONAL" && (
+                <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 space-y-2 animate-in fade-in duration-150">
+                  <span className="text-[10px] font-bold text-indigo-800 block uppercase tracking-wide">Datos para Factura Electrónica</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[9px] text-gray-400 block font-semibold mb-0.5">Tipo Doc.</label>
+                      <select
+                        value={occasionalClientInfo.docType}
+                        onChange={(e) => setOccasionalClientInfo(prev => ({ ...prev, docType: e.target.value }))}
+                        className="w-full bg-white border border-gray-200 rounded px-1.5 py-1 text-xs text-gray-800 outline-none"
+                      >
+                        <option value="CC">C.C.</option>
+                        <option value="NIT">NIT</option>
+                        <option value="CE">C.E.</option>
+                        <option value="RUT">RUT</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[9px] text-gray-400 block font-semibold mb-0.5">Identificación / Nit *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. 1090445..."
+                        value={occasionalClientInfo.document}
+                        onChange={(e) => handleOccasionalDocChange(e.target.value)}
+                        className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-xs text-gray-800 outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-gray-400 block font-semibold mb-0.5">Nombre Completo *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Consumidor Consumidor"
+                      value={occasionalClientInfo.name}
+                      onChange={(e) => setOccasionalClientInfo(p => ({ ...p, name: e.target.value }))}
+                      className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-xs text-gray-800 outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] text-gray-400 block font-semibold mb-0.5">E-mail (DIAN)</label>
+                      <input
+                        type="email"
+                        placeholder="correo@ejemplo.com"
+                        value={occasionalClientInfo.email}
+                        onChange={(e) => setOccasionalClientInfo(p => ({ ...p, email: e.target.value }))}
+                        className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-[11px] text-gray-800 outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-gray-400 block font-semibold mb-0.5">Teléfono (WhatsApp)</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. 3154567..."
+                        value={occasionalClientInfo.phone}
+                        onChange={(e) => setOccasionalClientInfo(p => ({ ...p, phone: e.target.value }))}
+                        className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-[11px] text-gray-800 outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CASE 3: Registered Loyalty Client (Search input and dropdown list) */}
+              {clientCategory === "REGISTRADO" && (
+                <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 space-y-2 animate-in fade-in duration-150">
+                  <span className="text-[10px] font-bold text-emerald-800 block uppercase tracking-wide">Buscar Cliente Registrado</span>
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Filtrar por nombre, cédula o cel..."
+                      value={clientSearchQuery}
+                      onChange={(e) => setClientSearchQuery(e.target.value)}
+                      className="w-full bg-white border rounded px-2 py-1.5 pl-6 text-[11px] outline-none text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <select
+                      value={selectedClientId}
+                      onChange={(e) => {
+                        setSelectedClientId(e.target.value);
+                        setDiscountPercent(0);
+                      }}
+                      className="w-full bg-white border rounded px-2 py-1 text-xs text-gray-800 outline-none"
+                    >
+                      <option value="GENERICO">-- Seleccione Cliente --</option>
+                      {clientes
+                        .filter(c => {
+                          if (c.id === "GENERICO") return false;
+                          if (!clientSearchQuery.trim()) return true;
+                          const q = clientSearchQuery.trim().toLowerCase();
+                          return (
+                            c.name.toLowerCase().includes(q) ||
+                            c.document.includes(q) ||
+                            (c.phone && c.phone.includes(q))
+                          );
+                        })
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} - #{c.document}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1021,25 +1312,55 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
             </div>
 
             <div className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
-              {/* Thermal receipt styling block */}
-              <div id="invoice-physical-print" className="bg-white p-5 border border-gray-300 rounded-xl space-y-4 md:max-w-xs mx-auto shadow-sm text-center font-mono text-[11px] text-gray-800 leading-normal">
+              {/* Thermal receipt styling block with Colombian DIAN compliance elements */}
+              <div id="invoice-physical-print" className="bg-white p-5 border border-gray-300 rounded-xl space-y-3.5 md:max-w-xs mx-auto shadow-sm text-center font-mono text-[11px] text-gray-800 leading-normal">
                 {/* Brand and company stats */}
-                <div className="space-y-1.5 pb-3 border-b border-dashed">
-                  <div className="text-base font-black tracking-tight">{db.getCompany().name}</div>
-                  <div className="text-[10px] text-gray-500 font-semibold">{db.getCompany().commercialInfo}</div>
-                  <div className="text-[9px] text-gray-400">
-                    Nit: {db.getCompany().nit} <br />
-                    Telf: {db.getCompany().phone} <br />
-                    Direcc: {db.getCompany().address}, {db.getCompany().city}
+                <div className="space-y-1 pb-3 border-b border-dashed">
+                  <div className="text-[13px] font-black tracking-tight uppercase text-gray-900">{db.getCompany().name}</div>
+                  {db.getCompany().razonSocial && <div className="text-[9px] text-gray-700 font-bold uppercase">{db.getCompany().razonSocial}</div>}
+                  <div className="text-[8.5px] text-gray-500 leading-relaxed text-left">
+                    <span>NIT: {db.getCompany().nit}{db.getCompany().dv ? `-${db.getCompany().dv}` : ""}</span> <br />
+                    <span>Régimen: {db.getCompany().regimenTributario || "Simplificado"}</span> <br />
+                    <span>Resp. Fiscal: {db.getCompany().responsabilidadesFiscales || "No Responsable de IVA"}</span> <br />
+                    <span>Actividad CIIU: {db.getCompany().actividadCIIU || "4771"}</span> <br />
+                    <span>Tel: {db.getCompany().telefonoEmpresarial || db.getCompany().phone}</span> <br />
+                    <span>Direcc: {db.getCompany().direccionComercial || db.getCompany().address}, {db.getCompany().ciudadRegistroCC || db.getCompany().city}</span>
                   </div>
+                </div>
+
+                {/* Colombian DIAN resolution and electronic invoice authorization info */}
+                <div className="text-[8px] text-left text-gray-400 bg-gray-50 p-2 rounded-lg border border-gray-100 space-y-0.5 leading-tight">
+                  <strong className="block text-gray-600 text-center text-[7.5px] uppercase tracking-wide border-b pb-0.5 mb-1">Autorización Facturación Oficial DIAN</strong>
+                  <div>Resolución: {db.getCompany().resolucionDian || "18764039328271"}</div>
+                  <div>Fecha: {db.getCompany().resolucionFecha || "2025-10-15"}</div>
+                  <div>Prefijo: {db.getCompany().prefijoFactura || "FAC"} • Rango: {db.getCompany().numeracionDesde || "1001"} - {db.getCompany().numeracionHasta || "10000"}</div>
                 </div>
 
                 {/* Bill metadata */}
                 <div className="text-left py-1 text-[10px] space-y-0.5 border-b border-dashed pb-3">
-                  <div><strong>FACTURA:</strong> {activeInvoice.invoiceNumber}</div>
+                  <div><strong>FACTURA DE VENTA:</strong> {activeInvoice.invoiceNumber}</div>
                   <div><strong>FECHA:</strong> {activeInvoice.date} <strong>HORA:</strong> {activeInvoice.time}</div>
                   <div><strong>VENDEDOR:</strong> {activeInvoice.sellerName}</div>
-                  <div><strong>CLIENTE:</strong> {activeInvoice.clientName}</div>
+                  <div className="border-t border-gray-100 pt-1.5 mt-1.5 space-y-0.5">
+                    <strong>ADQUIRENTE:</strong> <span className="uppercase">{activeInvoice.clientName}</span>
+                    {activeInvoice.occasionalClientDocNum && (
+                      <span className="text-[9px] text-gray-500 block leading-tight font-mono mt-0.5">
+                        {activeInvoice.occasionalClientDocType || "CC"}: {activeInvoice.occasionalClientDocNum} <br />
+                        {activeInvoice.occasionalClientEmail && <span className="lowercase block">Email: {activeInvoice.occasionalClientEmail}</span>}
+                        {activeInvoice.occasionalClientPhone && <span>Tel: {activeInvoice.occasionalClientPhone}</span>}
+                      </span>
+                    )}
+                    {!activeInvoice.occasionalClientDocNum && activeInvoice.clientId !== "GENERICO" && (
+                      <span className="text-[9px] text-gray-500 block leading-tight mt-0.5">
+                        Cliente ID: {activeInvoice.clientId}
+                      </span>
+                    )}
+                    {activeInvoice.clientId === "GENERICO" && (
+                      <span className="text-[9px] text-gray-400 block italic leading-tight mt-0.5">
+                        (Consumidor final de mostrador)
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Items breakdown list */}

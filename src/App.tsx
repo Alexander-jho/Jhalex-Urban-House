@@ -126,6 +126,33 @@ export default function App() {
         </div>
       )}
 
+      {/* Brand Watermark (id="real_liquid_glass_brand_ui") */}
+      {company.watermarkEnabled !== false && company.logo && (
+        <div 
+          id="real_liquid_glass_brand_ui"
+          className={`fixed pointer-events-none z-0 transition-all duration-500 select-none ${
+            company.watermarkPosition === "TOP_LEFT" ? "top-20 left-10" :
+            company.watermarkPosition === "TOP_RIGHT" ? "top-20 right-10" :
+            company.watermarkPosition === "BOTTOM_LEFT" ? "bottom-20 left-10" :
+            company.watermarkPosition === "BOTTOM_RIGHT" ? "bottom-20 right-20" :
+            "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" // default CENTER
+          }`}
+          style={{
+            opacity: (company.watermarkOpacity ?? 12) / 100,
+            width: `${(company.watermarkScale ?? 35) * 12}px`,
+            maxWidth: '85vw',
+            filter: mode === "LIQUID" ? "invert(1) brightness(0.6) blur(2px)" : "contrast(90%) blur(1px)",
+          }}
+        >
+          <img 
+            src={company.logo} 
+            alt="JHALEX BRANDING WATERMARK" 
+            className="w-full h-auto object-contain select-none opacity-80"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      )}
+
       {/* GLOWING HIGH TOP BAR */}
       <header className={`sticky top-0 z-40 px-5 py-3 flex items-center justify-between transition-all duration-300 shrink-0 ${
         mode === "LIQUID" 

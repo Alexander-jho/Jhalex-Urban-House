@@ -91,14 +91,49 @@ const INITIAL_CATEGORIES: ProductTypeCategory[] = [
 const INITIAL_COMPANY: CompanyConfig = {
   name: "JHALEX URBAN HOUSE",
   logo: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=200&h=200&fit=crop&q=80",
-  nit: "109876543-2",
+  nit: "901.442.238",
   address: "Avenida 10 # 24-85 Barrio Centro",
   city: "Cúcuta, N.S.",
   phone: "312 345 6789",
   email: "contacto@jhalexurbanhouse.com",
   responsible: "Jhalex Alexander",
   commercialInfo: "Almacén Exclusivo de Moda Urbana & Calzado Premium",
-  invoiceMessage: "Gracias por tu compra. JHALEX viste tu estilo urbano. ¡Vuelve pronto!"
+  invoiceMessage: "Gracias por tu compra. JHALEX viste tu estilo urbano. ¡Vuelve pronto!",
+  
+  // Colombia Legal Defaults
+  razonSocial: "Jhalex Urban House S.A.S.",
+  tipoSociedad: "Sociedad por Acciones Simplificada",
+  dv: "4",
+  ccmercio: "Cámara de Comercio de Cúcuta",
+  matriculaMercantil: "MC-20240985-11",
+  fechaRegistroCC: "2024-03-15",
+  ciudadRegistroCC: "Cúcuta",
+  direccionComercial: "Avenida 10 # 24-85 Barrio Centro",
+  telefonoEmpresarial: "312 345 6789",
+  correoEmpresarial: "facturacion@jhalexurbanhouse.com",
+  
+  // Tributaria configuration Defaults
+  regimenTributario: "Régimen Común (Responsable de IVA)",
+  responsabilidadesFiscales: "O-13 Gran Contribuyente, O-47 Obligado a facturar electrónicamente",
+  actividadCIIU: "4771 (Comercio al por menor de prendas de vestir y sus accesorios)",
+  ivaPercent: 19,
+  
+  // Facturación electrónica Defaults
+  proveedorTecnologico: "CODIAN S.A.S. (Autorizado DIAN)",
+  resolucionDian: "187640398271",
+  resolucionFecha: "2026-01-10",
+  prefijoFactura: "JUH",
+  numeracionDesde: 1000,
+  numeracionHasta: 9999,
+  numeracionSiguiente: 1004,
+  dianKey: "dian_prod_sec_key_98a7cbd7f7c3c2f",
+  dianEnvironment: "PRUEBAS",
+  
+  // Watermark Options Defaults
+  watermarkEnabled: true,
+  watermarkOpacity: 12,
+  watermarkScale: 35,
+  watermarkPosition: "CENTER"
 };
 
 const INITIAL_VENDEDORES: Vendedor[] = [];
@@ -253,7 +288,13 @@ export const db = {
   // Company Settings
   getCompany: (): CompanyConfig => {
     const data = localStorage.getItem(KEYS.COMPANY);
-    return data ? JSON.parse(data) : { ...INITIAL_COMPANY };
+    if (!data) return { ...INITIAL_COMPANY };
+    try {
+      const parsed = JSON.parse(data);
+      return { ...INITIAL_COMPANY, ...parsed };
+    } catch (e) {
+      return { ...INITIAL_COMPANY };
+    }
   },
   saveCompany: (config: CompanyConfig, requestorName: string, requestorRole: UserRole): void => {
     localStorage.setItem(KEYS.COMPANY, JSON.stringify(config));
