@@ -18,6 +18,8 @@ import { ContabilidadFinanciera } from "./components/ContabilidadFinanciera";
 import { AuditoriaLogs } from "./components/AuditoriaLogs";
 import { CompanySettings } from "./components/CompanySettings";
 import { EtiquetasBarras } from "./components/EtiquetasBarras";
+import { ProveedoresCompras } from "./components/ProveedoresCompras";
+import { useAppearance } from "./components/AppearanceContext";
 
 import {
   LayoutDashboard,
@@ -33,10 +35,12 @@ import {
   LogOut,
   Sparkles,
   WifiOff,
-  Barcode
+  Barcode,
+  Truck
 } from "lucide-react";
 
 export default function App() {
+  const { mode, setMode } = useAppearance();
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [userName, setUserName] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("pos");
@@ -74,6 +78,7 @@ export default function App() {
     { id: "dash", label: "Consola de Métricas", icon: LayoutDashboard, role: UserRole.ADMIN },
     { id: "pos", label: "Punto de Venta POS", icon: ShoppingBag, role: UserRole.SELLER }, // both can access POS
     { id: "inventory", label: "Inventarios & Moda", icon: Layers, role: UserRole.ADMIN },
+    { id: "thirdparty", label: "Proveedores & Compras", icon: Truck, role: UserRole.ADMIN },
     { id: "labels", label: "Impresión de Etiquetas", icon: Barcode, role: UserRole.ADMIN },
     { id: "caja", label: "Arqueo de Caja", icon: Wallet, role: UserRole.SELLER }, // both can access Caja
     { id: "vendedores", label: "Nómina Vendedores", icon: Users, role: UserRole.ADMIN },
@@ -106,10 +111,27 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 text-gray-800 flex flex-col font-sans transition-all duration-300">
+    <div className={`min-h-screen flex flex-col font-sans transition-all duration-300 relative ${
+      mode === "LIQUID" 
+        ? "bg-slate-100 text-slate-900 overflow-x-hidden" 
+        : "bg-slate-50/50 text-gray-800"
+    }`}>
       
+      {/* Dynamic Animated Blobs for Liquid Mode Background Depth */}
+      {mode === "LIQUID" && (
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-[5%] left-[25%] w-[380px] h-[380px] rounded-full bg-linear-to-tr from-indigo-200/35 via-violet-300/30 to-indigo-100/10 blur-[90px] animate-liquid-blob-1" />
+          <div className="absolute bottom-[15%] right-[10%] w-[450px] h-[450px] rounded-full bg-linear-to-tr from-cyan-200/30 via-pink-200/25 to-purple-100/15 blur-[100px] animate-liquid-blob-2" />
+          <div className="absolute top-[60%] left-[2%] w-[320px] h-[320px] rounded-full bg-violet-300/25 to-indigo-200/15 blur-[80px] animate-liquid-blob-1" />
+        </div>
+      )}
+
       {/* GLOWING HIGH TOP BAR */}
-      <header className="bg-gray-950 text-white border-b border-gray-800 sticky top-0 z-40 px-5 py-3 shadow-md flex items-center justify-between">
+      <header className={`sticky top-0 z-40 px-5 py-3 flex items-center justify-between transition-all duration-300 shrink-0 ${
+        mode === "LIQUID" 
+          ? "bg-slate-900/90 backdrop-blur-md border-b border-white/10 text-white shadow-xl" 
+          : "bg-slate-950 text-white border-b border-gray-850 shadow-md"
+      }`}>
         <div className="flex items-center gap-3">
           {company.logo ? (
             <img
@@ -135,11 +157,39 @@ export default function App() {
         </div>
 
         {/* Info Right controls */}
-        <div className="flex items-center gap-4 text-xs font-semibold">
+        <div className="flex items-center gap-2 sm:gap-4 text-xs font-semibold">
           {/* OFFLINE GREEN ACCENT indicator */}
           <div className="hidden sm:flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-full text-emerald-400 text-[10px]">
-            <WifiOff className="w-3.5 h-3.5" />
-            <span>MODO OFFLINE LOCAL</span>
+            <WifiOff className="w-3.5 h-3.5" strokeWidth={2.5} />
+            <span>MODO OFFLINE</span>
+          </div>
+
+          {/* Premium UI Mode Segmented Control */}
+          <div className="flex items-center gap-0.5 bg-black/35 backdrop-blur-xs border border-white/15 p-0.5 rounded-lg select-none">
+            <button
+              onClick={() => setMode("CLEAR")}
+              type="button"
+              className={`px-2.5 py-1 rounded-md text-[9px] font-black tracking-widest transition-all duration-200 flex items-center gap-1 cursor-pointer focus:outline-none ${
+                mode === "CLEAR"
+                  ? "bg-white text-gray-950 shadow-xs"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${mode === "CLEAR" ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-gray-500"}`} />
+              CLEAR
+            </button>
+            <button
+              onClick={() => setMode("LIQUID")}
+              type="button"
+              className={`px-2.5 py-1 rounded-md text-[9px] font-black tracking-widest transition-all duration-200 flex items-center gap-1 cursor-pointer focus:outline-none ${
+                mode === "LIQUID"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${mode === "LIQUID" ? "bg-cyan-300 animate-pulse shadow-[0_0_8px_#67e8f9]" : "bg-gray-500"}`} />
+              LIQUID
+            </button>
           </div>
 
           <div className="text-right">
@@ -148,24 +198,28 @@ export default function App() {
               {userName}
             </div>
             <div className="text-[10px] text-gray-500 font-mono tracking-wider uppercase">
-              Operator: {selectedRole}
+              OP: {selectedRole}
             </div>
           </div>
 
           <button
             onClick={handleLogout}
             title="Cambiar Operador"
-            className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition"
+            className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-850 transition"
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col md:flex-row">
+      <div className="flex-1 flex flex-col md:flex-row z-10 relative overflow-hidden">
         
         {/* SIDE BAR NAVIGATION SELECTORS */}
-        <aside className="w-full md:w-60 bg-white border-r border-gray-200 p-4 shrink-0 flex flex-col gap-2">
+        <aside className={`w-full md:w-60 p-4 shrink-0 flex flex-col gap-2 transition-all duration-300 ${
+          mode === "LIQUID" 
+            ? "bg-white/40 backdrop-blur-lg border-r border-white/50" 
+            : "bg-white border-r border-gray-200"
+        }`}>
           <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest pl-2 mb-1.5 block">
             Navegación Sistema
           </span>
@@ -178,13 +232,17 @@ export default function App() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition duration-150 ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold tracking-tight transition duration-150 cursor-pointer ${
                     isActive
-                      ? "bg-gray-950 text-white shadow-xs"
-                      : "text-gray-500 hover:text-gray-950 hover:bg-gray-100/70"
+                      ? mode === "LIQUID"
+                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10 scale-[1.01]"
+                        : "bg-gray-950 text-white shadow-xs"
+                      : mode === "LIQUID"
+                        ? "text-slate-600 hover:text-slate-950 hover:bg-white/50"
+                        : "text-gray-550 hover:text-gray-950 hover:bg-gray-100/70"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-indigo-400" : "text-gray-400"}`} />
+                  <Icon className={`w-4 h-4 transition-colors ${isActive ? (mode === "LIQUID" ? "text-cyan-300" : "text-indigo-400") : "text-gray-400"}`} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -193,7 +251,7 @@ export default function App() {
         </aside>
 
         {/* MAIN PANEL CONTENT LOADER WRAPPER */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto z-10 relative">
           {activeTab === "dash" && selectedRole === UserRole.ADMIN && <ReportesDash />}
           
           {activeTab === "pos" && (
@@ -205,6 +263,13 @@ export default function App() {
 
           {activeTab === "inventory" && selectedRole === UserRole.ADMIN && (
             <InventoryManager
+              currentRole={selectedRole}
+              currentUserName={userName}
+            />
+          )}
+
+          {activeTab === "thirdparty" && selectedRole === UserRole.ADMIN && (
+            <ProveedoresCompras
               currentRole={selectedRole}
               currentUserName={userName}
             />
@@ -270,7 +335,11 @@ export default function App() {
       </div>
 
       {/* FOOTER */}
-      <footer className="bg-white border-t border-gray-250 py-3.5 px-6 flex flex-col sm:flex-row justify-between items-center text-[11px] text-gray-400 font-medium">
+      <footer className={`py-3.5 px-6 flex flex-col sm:flex-row justify-between items-center text-[11px] font-medium transition-all duration-300 z-15 shrink-0 ${
+        mode === "LIQUID" 
+          ? "bg-white/40 backdrop-blur-lg border-t border-white/50 text-slate-500" 
+          : "bg-white border-t border-gray-250 text-gray-400"
+      }`}>
         <span>© 2026 JHALEX URBAN HOUSE PRO — Suite Integral de Comercio.</span>
         <span className="font-mono tracking-wider text-[10px] mt-1 sm:mt-0">
           Base de Datos: SQLITE Emu (Offline Local Storage) • Versión 1.2.0

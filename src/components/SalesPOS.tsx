@@ -18,6 +18,7 @@ import {
   Coupon
 } from "../types";
 import { VisualBarcode } from "./InventoryManager";
+import { useAppearance } from "./AppearanceContext";
 import {
   Search,
   Barcode,
@@ -45,6 +46,7 @@ interface SalesPOSProps {
 }
 
 export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
+  const { mode } = useAppearance();
   // DB states loaded
   const [products, setProducts] = useState<Product[]>(db.getProducts());
   const [vendedores, setVendedores] = useState<Vendedor[]>(db.getVendedores().filter(v => v.status === "ACTIVO"));
@@ -414,7 +416,11 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
       {/* LEFT AREA: Catalog, scanners and invoice details (Columns 7) */}
       <div className="lg:col-span-7 space-y-6">
         {/* Barcode & Manual Catalog Search Panel */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className={`${
+          mode === "LIQUID"
+            ? "liquid-glass-card shadow-xs"
+            : "bg-white border border-gray-200 shadow-2xs"
+        } rounded-2xl p-5 space-y-4`}>
           <div className="flex items-center gap-2 border-b border-gray-50 pb-3">
             <Barcode className="w-5 h-5 text-gray-700" />
             <h3 className="text-sm font-bold text-gray-900">Lectura y Agregado de Productos</h3>
@@ -484,7 +490,11 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
         </div>
 
         {/* CART LIST PREVIEW */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+        <div className={`${
+          mode === "LIQUID"
+            ? "liquid-glass-card shadow-xs"
+            : "bg-white border border-gray-200 shadow-2xs"
+        } rounded-2xl overflow-hidden flex flex-col`}>
           <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
             <span className="text-xs font-bold text-gray-700">Artículos en Caja ({cart.reduce((a,c) => a + c.quantity, 0)})</span>
             {cart.length > 0 && (
@@ -553,7 +563,11 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
         </div>
 
         {/* INVOICE BILLING HISTORY LIST */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
+        <div className={`${
+          mode === "LIQUID"
+            ? "liquid-glass-card shadow-xs"
+            : "bg-white border border-gray-200 shadow-2xs"
+        } rounded-2xl p-5 space-y-4`}>
           <h4 className="text-xs font-bold text-gray-900 uppercase tracking-widest border-b pb-2">Historial de Ventas del Turno</h4>
           <div className="max-h-56 overflow-y-auto divide-y divide-gray-100 text-xs">
             {sales.map((s) => (
@@ -603,7 +617,11 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
       <div className="lg:col-span-5 space-y-6">
         
         {/* OPERATOR AND CUSTOMER SELECT PANEL */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className={`${
+          mode === "LIQUID"
+            ? "liquid-glass-card shadow-xs"
+            : "bg-white border border-gray-200 shadow-2xs"
+        } rounded-2xl p-5 space-y-4`}>
           <div className="flex items-center justify-between border-b border-gray-50 pb-3">
             <span className="text-xs font-bold text-gray-900 uppercase tracking-widest">Asignación de Atributos</span>
             <button
@@ -668,7 +686,11 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
         </div>
 
         {/* SALES TYPE AND PAYMENT CHANNELS */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className={`${
+          mode === "LIQUID"
+            ? "liquid-glass-card shadow-xs"
+            : "bg-white border border-gray-200 shadow-2xs"
+        } rounded-2xl p-5 space-y-4`}>
           <span className="text-xs font-bold text-gray-900 uppercase tracking-widest block border-b pb-2">Canalización de Caja</span>
           
           <div className="grid grid-cols-2 gap-2">

@@ -6,6 +6,7 @@
 import React, { useMemo } from "react";
 import { db } from "../db";
 import { Product, Sale, Client, Vendedor } from "../types";
+import { useAppearance } from "./AppearanceContext";
 import {
   TrendingUp,
   TrendingDown,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 
 export function ReportesDash() {
+  const { mode } = useAppearance();
   const products: Product[] = db.getProducts();
   const sales: Sale[] = db.getSales().filter(s => s.status === "ACTIVA");
   const clientes: Client[] = db.getClientes().filter(c => c.id !== "GENERICO");
@@ -51,8 +53,6 @@ export function ReportesDash() {
     const inventarioValVenta = products.reduce((acc, curr) => acc + (curr.sellPrice * curr.stock), 0);
 
     // 6. Net Profit earned mathematically
-    // profit = items sold * (sellPrice - costPrice)
-    // factoring custom percentage item.discountPercent
     const totalEarningsProfit = sales.reduce((acc, s) => {
       const saleMargin = s.items.reduce((sum, item) => {
         const actualReceiptPrice = item.sellPrice * (1 - (s.discountPercent / 100));
@@ -86,7 +86,6 @@ export function ReportesDash() {
   // CATEGORY REPRESENTATION (For SVG Bar chart)
   const categoryStats = useMemo(() => {
     const counts: Record<string, number> = {};
-    // Seed with actual stored categories
     db.getCategories().forEach(c => {
       counts[c.name] = 0;
     });
@@ -102,7 +101,6 @@ export function ReportesDash() {
         }
       });
     });
-    // Filter to only categories that have some sales or active stock to prevent chart clutter
     return Object.keys(counts)
       .map(k => ({ name: k, total: counts[k] }))
       .filter(item => item.total > 0 || products.some(p => p.category === item.name));
@@ -133,20 +131,29 @@ export function ReportesDash() {
     return products.filter(p => p.stock <= p.minStock).slice(0, 5);
   }, [products]);
 
+  // Theme card definitions
+  const cardClass = mode === "LIQUID"
+    ? "liquid-glass-card rounded-2xl p-5 shadow-xs min-h-[120px] flex flex-col justify-between"
+    : "bg-white border border-gray-200 rounded-2xl p-5 shadow-2xs min-h-[120px] flex flex-col justify-between hover:scale-[1.01] transition-all duration-200";
+
+  const chartCardClass = mode === "LIQUID"
+    ? "liquid-glass-card rounded-2xl p-6 shadow-xs flex flex-col justify-between"
+    : "bg-white border border-gray-200 rounded-2xl p-6 shadow-2xs flex flex-col justify-between";
+
   return (
     <div className="space-y-6">
       {/* Overview stats cards grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Sales today */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3 flex flex-col justify-between hover:scale-[1.01] transition duration-150">
-          <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-semibold uppercase tracking-wider block">Ventas de Hoy</span>
-            <div className="bg-emerald-50 text-emerald-700 p-2 rounded-xl">
+        <div className={cardClass}>
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider block">Ventas de Hoy</span>
+            <div className="bg-emerald-500/10 text-emerald-600 p-2 rounded-xl">
               <ShoppingBag className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <strong className="text-gray-950 font-mono font-bold text-2xl block">
+            <strong className="text-gray-950 font-mono font-black text-2xl block tracking-tight">
               ${stats.totalSalesToday.toLocaleString("es-CO")}
             </strong>
             <span className="text-[10px] text-gray-400 font-mono">Corte local al día</span>
@@ -154,15 +161,15 @@ export function ReportesDash() {
         </div>
 
         {/* Profits */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3 flex flex-col justify-between hover:scale-[1.01] transition duration-150">
-          <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-semibold uppercase tracking-wider block">Margen de Ganancia</span>
-            <div className="bg-indigo-50 text-indigo-700 p-2 rounded-xl">
+        <div className={cardClass}>
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider block flex-1">Margen Neto Ganancia</span>
+            <div className="bg-indigo-500/10 text-indigo-600 p-2 rounded-xl">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <strong className="text-gray-950 font-mono font-bold text-2xl block">
+            <strong className="text-gray-950 font-mono font-black text-2xl block tracking-tight">
               ${stats.totalEarningsProfit.toLocaleString("es-CO")}
             </strong>
             <span className="text-[10px] text-gray-400 font-mono">Suma EBITDA de ventas activas</span>
@@ -170,15 +177,15 @@ export function ReportesDash() {
         </div>
 
         {/* Low Stock Alerts */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3 flex flex-col justify-between hover:scale-[1.01] transition duration-150">
-          <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-semibold uppercase tracking-wider block">Insumos Agotándose</span>
-            <div className={`p-2 rounded-xl ${stats.lowStockCount > 0 ? "bg-red-50 text-red-650" : "bg-gray-50 text-gray-400"}`}>
+        <div className={cardClass}>
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider block">Referencias Críticas</span>
+            <div className={`p-2 rounded-xl ${stats.lowStockCount > 0 ? "bg-red-500/10 text-red-650" : "bg-gray-100 text-gray-400"}`}>
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <strong className={`font-mono font-bold text-2xl block ${stats.lowStockCount > 0 ? "text-red-600" : "text-gray-950"}`}>
+            <strong className={`font-mono font-black text-2xl block ${stats.lowStockCount > 0 ? "text-red-650" : "text-gray-950"}`}>
               {stats.lowStockCount} refs
             </strong>
             <span className="text-[10px] text-gray-400 font-mono">Bajo el umbral mínimo</span>
@@ -186,15 +193,15 @@ export function ReportesDash() {
         </div>
 
         {/* Cash in register session */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3 flex flex-col justify-between hover:scale-[1.01] transition duration-150">
-          <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-semibold uppercase tracking-wider block">Efectivo en Caja</span>
-            <div className="bg-amber-50 text-amber-700 p-2 rounded-xl">
+        <div className={cardClass}>
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider block">Efectivo en Caja</span>
+            <div className="bg-amber-500/10 text-amber-600 p-2 rounded-xl">
               <Layers className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <strong className="text-gray-950 font-mono font-bold text-2xl block">
+            <strong className="text-gray-950 font-mono font-black text-2xl block tracking-tight">
               ${stats.cashAvailable.toLocaleString("es-CO")}
             </strong>
             <span className="text-[10px] text-gray-400 font-mono">
@@ -208,26 +215,26 @@ export function ReportesDash() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Weekly sales SVG line graph card */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest flex items-center gap-1.5">
+        <div className={chartCardClass}>
+          <div className="flex items-center justify-between border-b pb-3 border-gray-150">
+            <h3 className="text-xs font-black text-gray-950 uppercase tracking-widest flex items-center gap-1.5">
               <Activity className="w-4.5 h-4.5 text-indigo-600" />
               Ingresos de la Semana
             </h3>
-            <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold">Resumen de Ventas</span>
+            <span className="text-[9px] bg-indigo-50/70 text-indigo-700 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Corte Reciente</span>
           </div>
 
           <div className="w-full h-48 relative pt-4 flex items-end">
-            <div className="absolute inset-y-0 left-0 flex flex-col justify-between text-[9px] text-gray-400 font-mono pr-2 border-r">
+            <div className="absolute inset-y-0 left-0 flex flex-col justify-between text-[9px] text-gray-400 font-mono pr-2.5 border-r border-gray-150 py-1.5">
               <span>${maxChartVal.toLocaleString("es-CO")}</span>
               <span>${(maxChartVal / 2).toLocaleString("es-CO")}</span>
               <span>$0</span>
             </div>
             
-            <div className="flex-1 h-36 ml-20 flex justify-between items-end relative">
+            <div className="flex-1 h-36 ml-24 flex justify-between items-end relative">
               {/* Grid guide background lines */}
-              <div className="absolute inset-x-0 top-0 border-t border-dashed border-gray-100 w-full" />
-              <div className="absolute inset-x-0 top-[50%] border-t border-dashed border-gray-100 w-full" />
+              <div className="absolute inset-x-0 top-0 border-t border-dashed border-gray-100/80 w-full" />
+              <div className="absolute inset-x-0 top-[50%] border-t border-dashed border-gray-100/80 w-full" />
               <div className="absolute inset-x-0 bottom-0 border-t border-gray-250 w-full" />
 
               {/* Render lines and columns */}
@@ -241,7 +248,7 @@ export function ReportesDash() {
                     
                     <div
                       style={{ height: `${percentHeight}%` }}
-                      className="w-5 bg-gradient-to-t from-indigo-500/80 to-indigo-600 rounded-t-sm hover:brightness-110 transition"
+                      className="w-5 bg-gradient-to-t from-indigo-500/80 to-indigo-600 rounded-t-lg hover:brightness-110 transition-all duration-300"
                     />
                     
                     <span className="text-[9px] text-gray-400 font-semibold font-mono mt-2 uppercase">
@@ -255,52 +262,64 @@ export function ReportesDash() {
         </div>
 
         {/* Bottom sold categories visual horizontal bars card */}
-        <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <h3 className="text-sm font-bold text-gray-950 uppercase tracking-widest flex items-center gap-1.5">
+        <div className={chartCardClass}>
+          <div className="flex items-center justify-between border-b pb-3 border-gray-150">
+            <h3 className="text-xs font-black text-gray-950 uppercase tracking-widest flex items-center gap-1.5">
               <Award className="w-4.5 h-4.5 text-amber-500" />
-              Productos por Categoría
+              Venta por Categoría
             </h3>
-            <span className="text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full font-bold">Uds vendidas</span>
+            <span className="text-[9px] bg-amber-50/70 text-amber-800 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Unidades Vendidas</span>
           </div>
 
-          <div className="space-y-3.5 pt-2">
-            {categoryStats.map((c, i) => {
-              const maxUnits = Math.max(...categoryStats.map(o => o.total)) || 1;
-              const widthRatio = (c.total / maxUnits) * 100;
-              return (
-                <div key={i} className="space-y-1 text-xs">
-                  <div className="flex justify-between font-semibold text-gray-700">
-                    <span>{c.name}</span>
-                    <span className="font-mono text-gray-900">{c.total} unidades</span>
+          <div className="space-y-4 pt-2">
+            {categoryStats.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">Aún no hay unidades registradas.</div>
+            ) : (
+              categoryStats.map((c, i) => {
+                const maxUnits = Math.max(...categoryStats.map(o => o.total)) || 1;
+                const widthRatio = (c.total / maxUnits) * 100;
+                return (
+                  <div key={i} className="space-y-1 text-xs">
+                    <div className="flex justify-between font-bold text-gray-700">
+                      <span>{c.name}</span>
+                      <span className="font-mono text-gray-950">{c.total} unidades</span>
+                    </div>
+                    <div className="w-full bg-slate-100/50 rounded-full h-2 border border-slate-200/10">
+                      <div
+                        style={{ width: `${Math.max(4, widthRatio)}%` }}
+                        className="bg-indigo-600 h-2 rounded-full transition-all duration-500"
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div
-                      style={{ width: `${Math.max(3, widthRatio)}%` }}
-                      className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </div>
 
       {/* LOWER NOTIFICATION WARNING BANNER (Alert for critically low stocks) */}
       {criticalLowProducts.length > 0 && (
-        <div className="bg-red-50 border border-red-150 rounded-2xl p-5 shadow-sm space-y-3">
-          <div className="flex items-center gap-2 text-red-800 font-bold text-xs uppercase tracking-widest">
+        <div className={`border rounded-2xl p-5 shadow-xs space-y-3 transition-colors ${
+          mode === "LIQUID"
+            ? "bg-red-500/10 border-red-500/25 text-red-950"
+            : "bg-red-50 border border-red-150 text-red-500/90"
+        }`}>
+          <div className="flex items-center gap-2 text-red-800 font-extrabold text-xs uppercase tracking-widest">
             <CircleAlert className="w-5 h-5 text-red-650 animate-bounce" />
             Alerta Crítica: Re-abastecimiento del Inventario Requerido
           </div>
-          <p className="text-xs text-red-600">
+          <p className="text-xs text-red-600 font-medium">
             Los siguientes artículos de moda urbana han cruzado o igualado las existencias mínimas de seguridad fijadas por el Administrador:
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1 text-xs font-medium text-gray-700">
             {criticalLowProducts.map((p) => {
               return (
-                <div key={p.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-xs">
+                <div key={p.id} className={`border rounded-xl p-3.5 flex justify-between items-center transition-all duration-300 ${
+                  mode === "LIQUID" 
+                    ? "bg-white/40 border-white/45 shadow-2xs" 
+                    : "bg-white border-gray-150 shadow-2xs"
+                }`}>
                   <div>
                     <span className="font-bold text-gray-900 block truncate max-w-[150px]">{p.name}</span>
                     <span className="text-[10px] text-gray-400 font-mono">Ref: {p.code} • Talla: {p.size}</span>
@@ -320,3 +339,4 @@ export function ReportesDash() {
     </div>
   );
 }
+

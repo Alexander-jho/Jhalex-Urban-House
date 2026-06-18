@@ -59,6 +59,8 @@ export interface Product {
   stock: number;
   minStock: number;
   priceHistory?: PriceHistoryLog[];
+  taxType?: "GRAVADO" | "EXCLUIDO";
+  taxRate?: number; // e.g., 0, 5, 19
 }
 
 export interface InventoryHistory {
@@ -87,6 +89,7 @@ export interface Client {
   id: string;
   name: string;
   document: string;
+  documentType?: "CC" | "NIT" | "CE" | "RUT";
   phone: string;
   address: string;
   email: string;
@@ -177,6 +180,7 @@ export interface CashTransaction {
   concept: string;
   responsibleAdmin: string;
   authorizedBy: string;
+  supportNumber?: string; // "Soporte documental"
 }
 
 export interface CashDrawerOpening {
@@ -247,4 +251,34 @@ export interface AuditLog {
   operation: string;
   reason: string;
   details: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  nit: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  address: string;
+  suppliedProductsCount: number;
+}
+
+export interface Purchase {
+  id: string;
+  purchaseNumber: string;
+  supplierId: string;
+  supplierName: string;
+  date: string;
+  time: string;
+  items: {
+    productId: string;
+    productName: string;
+    costPrice: number;
+    quantity: number;
+    total: number;
+  }[];
+  total: number;
+  user: string;
+  notes?: string;
 }

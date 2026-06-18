@@ -21,7 +21,9 @@ import {
   ProductTypeCategory,
   CashDenominations,
   CashDrawerOpening,
-  DrawerConfig
+  DrawerConfig,
+  Supplier,
+  Purchase
 } from "./types";
 
 // Keys for LocalStorage
@@ -40,7 +42,9 @@ const KEYS = {
   ACTIVE_USER: "jhalex_active_user",
   CATEGORIES: "jhalex_categories",
   DRAWER_OPENINGS: "jhalex_drawer_openings",
-  DRAWER_CONFIG: "jhalex_drawer_config"
+  DRAWER_CONFIG: "jhalex_drawer_config",
+  PROVEEDORES: "jhalex_proveedores",
+  COMPRAS: "jhalex_compras"
 };
 
 // INITIAL PRE-SET CATEGORIES
@@ -105,6 +109,39 @@ const INITIAL_PRODUCTS: Product[] = [];
 
 const INITIAL_PROMOTIONS: Promotion[] = [];
 
+const INITIAL_PROVEEDORES: Supplier[] = [
+  {
+    id: "PROV_1",
+    name: "Textiles Medellín S.A.S.",
+    nit: "890.900.123-1",
+    contactName: "Carlos Mario Restrepo",
+    phone: "311 555 4321",
+    email: "ventas@textilesmedellin.co",
+    address: "Calle 50 # 45-20, Medellín",
+    suppliedProductsCount: 15
+  },
+  {
+    id: "PROV_2",
+    name: "Calzado Bucaramanga Real",
+    nit: "900.234.567-8",
+    contactName: "Martha Cecilia Serrano",
+    phone: "315 222 9876",
+    email: "pedidos@calzadobucaramangareal.com",
+    address: "Carrera 15 # 34-12, Bucaramanga",
+    suppliedProductsCount: 8
+  },
+  {
+    id: "PROV_3",
+    name: "Moda Urbana Importadora",
+    nit: "109-887-223-5",
+    contactName: "Julio Andrés Bermúdez",
+    phone: "320 888 1122",
+    email: "contacto@modaurbanaimp.com",
+    address: "San Victorino, Bogotá D.C.",
+    suppliedProductsCount: 12
+  }
+];
+
 // Security configurations
 const PASSWORDS = {
   ADMIN: "1234",
@@ -129,6 +166,8 @@ export function initDB(): void {
     localStorage.removeItem(KEYS.CATEGORIES);
     localStorage.removeItem(KEYS.DRAWER_OPENINGS);
     localStorage.removeItem(KEYS.DRAWER_CONFIG);
+    localStorage.removeItem(KEYS.PROVEEDORES);
+    localStorage.removeItem(KEYS.COMPRAS);
     localStorage.removeItem("admin_pin");
     localStorage.removeItem("seller_pin");
     localStorage.setItem(DB_RESET_KEY, "true");
@@ -160,6 +199,12 @@ export function initDB(): void {
   }
   if (!localStorage.getItem(KEYS.PROMOTION)) {
     localStorage.setItem(KEYS.PROMOTION, JSON.stringify(INITIAL_PROMOTIONS));
+  }
+  if (!localStorage.getItem(KEYS.PROVEEDORES)) {
+    localStorage.setItem(KEYS.PROVEEDORES, JSON.stringify(INITIAL_PROVEEDORES));
+  }
+  if (!localStorage.getItem(KEYS.COMPRAS)) {
+    localStorage.setItem(KEYS.COMPRAS, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.HISTORY)) {
     localStorage.setItem(KEYS.HISTORY, JSON.stringify([]));
@@ -264,6 +309,17 @@ export const db = {
 
   saveProduct: (product: Product, requestorName: string, requestorRole: UserRole, isNew: boolean): void => {
     const products = db.getProducts();
+    
+    // Duplicate control for both unique alphanumeric tags
+    const duplicateCode = products.find(p => p.id !== product.id && p.code.trim().toUpperCase() === product.code.trim().toUpperCase());
+    if (duplicateCode) {
+      throw new Error(`Duplicado Detectado: Ya existe otro producto registrado con el código interno de referencia "${product.code}".`);
+    }
+    const duplicateBarcode = products.find(p => p.id !== product.id && p.barCode.trim() === product.barCode.trim() && product.barCode.trim() !== "");
+    if (duplicateBarcode) {
+      throw new Error(`Duplicado Detectado: Ya existe otro de producto registrado con el código de barras de fábrica "${product.barCode}".`);
+    }
+
     if (isNew) {
       product.priceHistory = [
         {
@@ -980,5 +1036,93 @@ export const db = {
 
   saveRoundingConfig: (config: { enabled: boolean; step: number }): void => {
     localStorage.setItem("jhalex_rounding_config", JSON.stringify(config));
+  },
+
+  getProveedores: (): Supplier[] => {
+    return getStore<Supplier[]>(KEYS.PROVEEDORES) || [];
+  },
+
+  saveProveedor: (p: Supplier, requestorName: string, requestorRole: UserRole): void => {
+    const suppliers = db.getProveedores();
+    const idx = suppliers.findIndex(item => item.id === p.id);
+    if (idx === -1) {
+      suppliers.unshift(p);
+      db.logAudit(
+        requestorName,
+        requestorRole,
+        "CREAR_PROVEEDOR",
+        "Registro",
+        `Creó nuevo proveedor: ${p.name} con NIT: ${p.nit}`
+      );
+    } else {
+      suppliers[idx] = p;
+      db.logAudit(
+        requestorName,
+        requestorRole,
+        "EDITAR_PROVEEDOR",
+        "Modificación",
+        `Actualizó datos de proveedor: ${p.name}`
+      );
+    }
+    setStore(KEYS.PROVEEDORES, suppliers);
+  },
+
+  deleteProveedor: (id: string, requestorName: string, requestorRole: UserRole): boolean => {
+    const suppliers = db.getProveedores();
+    const originalLength = suppliers.length;
+    const filtered = suppliers.filter(item => item.id !== id);
+    if (filtered.length === originalLength) return false;
+    setStore(KEYS.PROVEEDORES, filtered);
+    db.logAudit(
+      requestorName,
+      requestorRole,
+      "ELIMINAR_PROVEEDOR",
+      "Eliminación",
+      `Eliminó proveedor con ID: ${id}`
+    );
+    return true;
+  },
+
+  getPurchases: (): Purchase[] => {
+    return getStore<Purchase[]>(KEYS.COMPRAS) || [];
+  },
+
+  savePurchase: (purchase: Purchase, requestorName: string, requestorRole: UserRole): void => {
+    const purchases = db.getPurchases();
+    purchases.unshift(purchase);
+    setStore(KEYS.COMPRAS, purchases);
+
+    // Update stock and register history
+    const products = db.getProducts();
+    purchase.items.forEach(item => {
+      const prod = products.find(p => p.id === item.productId);
+      if (prod) {
+        const previousStock = prod.stock;
+        prod.stock += item.quantity;
+        prod.costPrice = item.costPrice; // Update average/new cost price
+        
+        db.logInventoryHistory({
+          id: "HIS_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+          productId: prod.id,
+          productName: prod.name,
+          type: "ENTRY",
+          quantity: item.quantity,
+          previousStock: previousStock,
+          newStock: prod.stock,
+          user: requestorName,
+          date: new Date().toISOString().split("T")[0],
+          reason: `Compra registrada Factura #${purchase.purchaseNumber}`
+        });
+      }
+    });
+    setStore(KEYS.PRODUCTS, products);
+
+    db.logAudit(
+      requestorName,
+      requestorRole,
+      "REGISTRO_COMPRA",
+      `Compra #${purchase.purchaseNumber}`,
+      `Registró compra a proveedor ${purchase.supplierName} por valor total de $${purchase.total.toLocaleString("es-CO")} COP`
+    );
   }
 };

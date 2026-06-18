@@ -6,6 +6,7 @@
 import React, { useState, useMemo } from "react";
 import { db } from "../db";
 import { Product, UserRole, InventoryHistory, ProductTypeCategory } from "../types";
+import { useAppearance } from "./AppearanceContext";
 import {
   ListFilter,
   Plus,
@@ -78,6 +79,7 @@ interface InventoryManagerProps {
 }
 
 export function InventoryManager({ currentRole, currentUserName }: InventoryManagerProps) {
+  const { mode } = useAppearance();
   const [products, setProducts] = useState<Product[]>(db.getProducts());
   const [history, setHistory] = useState<InventoryHistory[]>(db.getInventoryHistory());
   const [activeTab, setActiveTab] = useState<"LIST" | "HISTORY" | "CATEGORIES">("LIST");
@@ -124,6 +126,23 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
   const [showOldPrice, setShowOldPrice] = useState<boolean>(true);
   const [customDiscountPercent, setCustomDiscountPercent] = useState<number>(0);
   const [askForLabelsProduct, setAskForLabelsProduct] = useState<{ prodToSave: Product; isNew: boolean } | null>(null);
+  const [isNoBarcode, setIsNoBarcode] = useState<boolean>(false);
+
+  // Generate unique sequential code starting with JH-000001
+  const generateJHCode = (): string => {
+    let maxNum = 0;
+    products.forEach(p => {
+      if (p.code && p.code.startsWith("JH-")) {
+        const numPart = p.code.substring(3);
+        const parsed = parseInt(numPart, 10);
+        if (!isNaN(parsed) && parsed > maxNum) {
+          maxNum = parsed;
+        }
+      }
+    });
+    const nextNum = maxNum + 1;
+    return `JH-${String(nextNum).padStart(6, '0')}`;
+  };
 
   // Quick Adjustment states
   const [adjustTarget, setAdjustTarget] = useState<Product | null>(null);
@@ -222,24 +241,31 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
     } else if (action.type === "ADJUST") {
       db.adjustStock(action.targetId, action.newStock!, action.reason || "Ajuste manual", reqName, reqRole);
     } else if (action.type === "SAVE") {
-      // Save product logic
-      const prodToSave = {
-        ...formProduct,
-        enterDate: formProduct.enterDate || new Date().toISOString().split("T")[0],
-        costPrice: Number(formProduct.costPrice || 0),
-        sellPrice: Number(formProduct.sellPrice || 0),
-        stock: Number(formProduct.stock || 0),
-        minStock: Number(formProduct.minStock || 0)
-      } as Product;
-      
-      const originalProduct = products.find(p => p.id === prodToSave.id);
-      const isPriceChanged = originalProduct && originalProduct.sellPrice !== prodToSave.sellPrice;
+      try {
+        // Save product logic
+        const prodToSave = {
+          ...formProduct,
+          enterDate: formProduct.enterDate || new Date().toISOString().split("T")[0],
+          costPrice: Number(formProduct.costPrice || 0),
+          sellPrice: Number(formProduct.sellPrice || 0),
+          stock: Number(formProduct.stock || 0),
+          minStock: Number(formProduct.minStock || 0),
+          taxType: formProduct.taxType || "GRAVADO",
+          taxRate: formProduct.taxRate !== undefined ? Number(formProduct.taxRate) : 19
+        } as Product;
+        
+        const originalProduct = products.find(p => p.id === prodToSave.id);
+        const isPriceChanged = originalProduct && originalProduct.sellPrice !== prodToSave.sellPrice;
 
-      db.saveProduct(prodToSave, reqName, reqRole, !isEditing);
-      setShowForm(false);
+        db.saveProduct(prodToSave, reqName, reqRole, !isEditing);
+        setShowForm(false);
 
-      if (isPriceChanged) {
-        setAskForLabelsProduct({ prodToSave, isNew: !isEditing });
+        if (isPriceChanged) {
+          setAskForLabelsProduct({ prodToSave, isNew: !isEditing });
+        }
+      } catch (err: any) {
+        alert(err.message || "Error al guardar el producto.");
+        return; // Retreave form focus instead of closing
       }
     }
 
@@ -249,12 +275,14 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
 
   const initEditProduct = (prod: Product) => {
     setIsEditing(true);
+    setIsNoBarcode(prod.code ? prod.code.startsWith("JH-") : false);
     setFormProduct(prod);
     setShowForm(true);
   };
 
   const initNewProduct = () => {
     setIsEditing(false);
+    setIsNoBarcode(false);
     
     // Auto-generate starting internal code and barcode!
     const uniqueInt = Math.floor(100 + Math.random() * 900);
@@ -277,7 +305,9 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
       sellPrice: 0,
       stock: 0,
       minStock: 5,
-      enterDate: new Date().toISOString().split("T")[0]
+      enterDate: new Date().toISOString().split("T")[0],
+      taxType: "GRAVADO",
+      taxRate: 19
     });
     setShowForm(true);
   };
@@ -367,7 +397,11 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
       {activeTab === "LIST" && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar Filters */}
-          <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4 h-fit">
+          <div className={`${
+            mode === "LIQUID"
+              ? "liquid-glass-card shadow-xs"
+              : "bg-white border border-gray-200 shadow-2xs"
+          } rounded-2xl p-5 space-y-4 h-fit`}>
             <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
               <SlidersHorizontal className="w-4 h-4 text-gray-600" />
               <h3 className="text-sm font-bold text-gray-900">Buscador y Filtros</h3>
@@ -449,7 +483,11 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
           </div>
 
           {/* Main Products Grid */}
-          <div className="lg:col-span-3 bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+          <div className={`lg:col-span-3 ${
+            mode === "LIQUID"
+              ? "liquid-glass-card shadow-xs"
+              : "bg-white border border-gray-200 shadow-2xs"
+          } rounded-2xl overflow-hidden flex flex-col`}>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -886,49 +924,96 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
               </div>
 
               {/* Advanced Code Controls */}
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 flex flex-col md:flex-row items-center gap-4">
-                <div className="flex-1 space-y-3 w-full">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-500">Código Interno *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formProduct.code}
-                        onChange={(e) => setFormProduct(prev => ({ ...prev, code: e.target.value }))}
-                        placeholder="Ej. U-ROP-105"
-                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-500">Código de Barras (UPC/EAN) *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formProduct.barCode}
-                        onChange={(e) => setFormProduct(prev => ({ ...prev, barCode: e.target.value }))}
-                        placeholder="770000000000"
-                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none"
-                      />
-                    </div>
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-150 space-y-3">
+                {/* Toggle option for products without barcode */}
+                <div className="bg-white border rounded-lg p-3 flex items-center justify-between shadow-2xs">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-gray-800 block">Producto sin código de barras</span>
+                    <span className="text-[10px] text-gray-400 block max-w-md">
+                      Marque esta opción para generar un código y código de barras interno único secuencial de la casa (Ej. <strong>JH-000001</strong>).
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <button
-                      type="button"
-                      onClick={handleAutogenerateBarcodes}
-                      className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-semibold"
-                    >
-                      <Barcode className="w-3.5 h-3.5" />
-                      Autogenerar Código Único y de Barras
-                    </button>
-                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isNoBarcode}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setIsNoBarcode(checked);
+                      if (checked) {
+                        const nextJH = generateJHCode();
+                        setFormProduct(prev => ({
+                          ...prev,
+                          code: nextJH,
+                          barCode: nextJH
+                        }));
+                      } else {
+                        // Reset to generic code
+                        const uniqueInt = Math.floor(100 + Math.random() * 900);
+                        const generatedCode = `U-ROP-${uniqueInt}`;
+                        const random12Dist = "770" + Math.floor(100000000 + Math.random() * 900000000).toString();
+                        setFormProduct(prev => ({
+                          ...prev,
+                          code: generatedCode,
+                          barCode: random12Dist
+                        }));
+                      }
+                    }}
+                    className="w-4.5 h-4.5 rounded text-indigo-650 accent-indigo-600 focus:ring-black"
+                  />
                 </div>
 
-                {formProduct.barCode && (
-                  <div className="bg-white border p-3 rounded-lg flex items-center justify-center shrink-0 w-44">
-                    <VisualBarcode value={formProduct.barCode} />
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                  <div className="flex-1 space-y-3 w-full">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-gray-500">
+                          Código Interno * {isNoBarcode && "(Autogenerado)"}
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          disabled={isNoBarcode}
+                          value={formProduct.code || ""}
+                          onChange={(e) => setFormProduct(prev => ({ ...prev, code: e.target.value }))}
+                          placeholder="Ej. U-ROP-105"
+                          className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none disabled:bg-gray-105 disabled:text-gray-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-gray-500">
+                          Código de Barras (UPC/EAN) * {isNoBarcode && "(Interno JH)"}
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          disabled={isNoBarcode}
+                          value={formProduct.barCode || ""}
+                          onChange={(e) => setFormProduct(prev => ({ ...prev, barCode: e.target.value }))}
+                          placeholder="770000000000"
+                          className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none disabled:bg-gray-105 disabled:text-gray-500"
+                        />
+                      </div>
+                    </div>
+                    {!isNoBarcode && (
+                      <div className="text-right">
+                        <button
+                          type="button"
+                          onClick={handleAutogenerateBarcodes}
+                          className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-semibold"
+                        >
+                          <Barcode className="w-3.5 h-3.5" />
+                          Autogenerar Código Único y de Barras
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {formProduct.barCode && (
+                    <div className="bg-white border p-3 rounded-lg flex items-center justify-center shrink-0 w-44">
+                      <VisualBarcode value={formProduct.barCode} />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
@@ -974,45 +1059,76 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-t border-gray-100 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 border-t border-gray-100 pt-4">
                 <div className="space-y-1 col-span-1">
-                  <label className="text-xs font-semibold text-amber-600">Precio de Compra (Costo) *</label>
+                  <label className="text-xs font-semibold text-amber-600">Precio Compra *</label>
                   <input
                     type="number"
                     required
                     min={0}
                     value={formProduct.costPrice || 0}
                     onChange={(e) => setFormProduct(prev => ({ ...prev, costPrice: Number(e.target.value) }))}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono font-bold focus:outline-none focus:ring-1 focus:ring-black"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-sm font-mono font-bold focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
                 <div className="space-y-1 col-span-1">
-                  <label className="text-xs font-semibold text-emerald-600 font-bold">Precio de Venta *</label>
+                  <label className="text-xs font-semibold text-emerald-600 font-bold">Precio Venta *</label>
                   <input
                     type="number"
                     required
                     min={0}
                     value={formProduct.sellPrice || 0}
                     onChange={(e) => setFormProduct(prev => ({ ...prev, sellPrice: Number(e.target.value) }))}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono font-bold focus:outline-none focus:ring-1 focus:ring-black"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-sm font-mono font-bold focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
                 <div className="space-y-1 col-span-1">
-                  <label className="text-xs font-semibold text-gray-400">Ganancia Estimada</label>
-                  <div className="bg-gray-100/70 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono font-bold text-gray-600">
+                  <label className="text-xs font-semibold text-gray-500">Impuesto / IVA</label>
+                  <select
+                    value={formProduct.taxType || "GRAVADO"}
+                    onChange={(e) => {
+                      const val = e.target.value as "GRAVADO" | "EXCLUIDO";
+                      setFormProduct(prev => ({
+                        ...prev,
+                        taxType: val,
+                        taxRate: val === "EXCLUIDO" ? 0 : 19
+                      }));
+                    }}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none"
+                  >
+                    <option value="GRAVADO">GRAVADO (IVA)</option>
+                    <option value="EXCLUIDO">EXCLUIDO (Exento)</option>
+                  </select>
+                </div>
+                <div className="space-y-1 col-span-1">
+                  <label className="text-xs font-semibold text-gray-500">Tarifa de IVA %</label>
+                  <select
+                    value={formProduct.taxRate !== undefined ? formProduct.taxRate : 19}
+                    disabled={formProduct.taxType === "EXCLUIDO"}
+                    onChange={(e) => setFormProduct(prev => ({ ...prev, taxRate: Number(e.target.value) }))}
+                    className="w-full bg-white disabled:bg-gray-100 disabled:text-gray-400 border border-gray-200 rounded-lg px-2 py-2 text-xs font-mono font-bold focus:outline-none"
+                  >
+                    <option value={19}>19% (General CO)</option>
+                    <option value={5}>5% (Diferencial CO)</option>
+                    <option value={0}>0% (Excluido CO)</option>
+                  </select>
+                </div>
+                <div className="space-y-1 col-span-1">
+                  <label className="text-xs font-semibold text-gray-400">Ganancia Bruta</label>
+                  <div className="bg-gray-100/70 border border-gray-200 rounded-lg px-2 py-2 text-sm font-mono font-bold text-gray-600 text-center">
                     ${earnAmount.toLocaleString("es-CO")}
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500">Cantidad Inicial *</label>
+                <div className="space-y-1 col-span-1">
+                  <label className="text-xs font-semibold text-gray-500">Existencia Inicial *</label>
                   <input
                     type="number"
                     required
                     min={0}
                     value={formProduct.stock || 0}
                     onChange={(e) => setFormProduct(prev => ({ ...prev, stock: Number(e.target.value) }))}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-sm font-mono focus:outline-none"
                   />
                 </div>
               </div>
@@ -1296,6 +1412,15 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
                       +
                     </button>
                   </div>
+                  {printableLabel.stock > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(printableLabel.stock)}
+                      className="w-full mt-2 text-[10px] text-indigo-650 hover:text-indigo-805 font-bold text-left block focus:outline-none"
+                    >
+                      💡 Copias iguales al inventario actual ({printableLabel.stock} unidades)
+                    </button>
+                  )}
                 </div>
 
                 {/* Old Price Toggles */}
