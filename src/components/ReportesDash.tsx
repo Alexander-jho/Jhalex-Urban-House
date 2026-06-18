@@ -85,11 +85,16 @@ export function ReportesDash() {
 
   // CATEGORY REPRESENTATION (For SVG Bar chart)
   const categoryStats = useMemo(() => {
-    const counts: Record<string, number> = { Ropa: 0, Zapatos: 0, Accesorios: 0, Lociones: 0, Bolsos: 0 };
+    const counts: Record<string, number> = {};
+    // Seed with actual stored categories
+    db.getCategories().forEach(c => {
+      counts[c.name] = 0;
+    });
+
     sales.forEach(s => {
       s.items.forEach(item => {
         const p = products.find(prod => prod.id === item.productId);
-        const cat = p ? p.category : "Ropa";
+        const cat = p ? p.category : "Otros";
         if (counts[cat] !== undefined) {
           counts[cat] += item.quantity;
         } else {
@@ -97,7 +102,10 @@ export function ReportesDash() {
         }
       });
     });
-    return Object.keys(counts).map(k => ({ name: k, total: counts[k] }));
+    // Filter to only categories that have some sales or active stock to prevent chart clutter
+    return Object.keys(counts)
+      .map(k => ({ name: k, total: counts[k] }))
+      .filter(item => item.total > 0 || products.some(p => p.category === item.name));
   }, [sales, products]);
 
   // DAILY INCOME LINE MATRIX (Past 7 days including today)

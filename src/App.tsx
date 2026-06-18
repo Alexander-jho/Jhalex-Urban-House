@@ -17,6 +17,7 @@ import { DescuentosPromociones } from "./components/DescuentosPromociones";
 import { ContabilidadFinanciera } from "./components/ContabilidadFinanciera";
 import { AuditoriaLogs } from "./components/AuditoriaLogs";
 import { CompanySettings } from "./components/CompanySettings";
+import { EtiquetasBarras } from "./components/EtiquetasBarras";
 
 import {
   LayoutDashboard,
@@ -31,7 +32,8 @@ import {
   Building,
   LogOut,
   Sparkles,
-  WifiOff
+  WifiOff,
+  Barcode
 } from "lucide-react";
 
 export default function App() {
@@ -72,6 +74,7 @@ export default function App() {
     { id: "dash", label: "Consola de Métricas", icon: LayoutDashboard, role: UserRole.ADMIN },
     { id: "pos", label: "Punto de Venta POS", icon: ShoppingBag, role: UserRole.SELLER }, // both can access POS
     { id: "inventory", label: "Inventarios & Moda", icon: Layers, role: UserRole.ADMIN },
+    { id: "labels", label: "Impresión de Etiquetas", icon: Barcode, role: UserRole.ADMIN },
     { id: "caja", label: "Arqueo de Caja", icon: Wallet, role: UserRole.SELLER }, // both can access Caja
     { id: "vendedores", label: "Nómina Vendedores", icon: Users, role: UserRole.ADMIN },
     { id: "clientes", label: "Fidelización", icon: Gift, role: UserRole.SELLER }, // both can manage customers
@@ -202,6 +205,13 @@ export default function App() {
 
           {activeTab === "inventory" && selectedRole === UserRole.ADMIN && (
             <InventoryManager
+              currentRole={selectedRole}
+              currentUserName={userName}
+            />
+          )}
+
+          {activeTab === "labels" && selectedRole === UserRole.ADMIN && (
+            <EtiquetasBarras
               currentRole={selectedRole}
               currentUserName={userName}
             />

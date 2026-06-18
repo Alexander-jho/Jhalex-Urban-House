@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo } from "react";
 import { db } from "../db";
-import { Product, UserRole, InventoryHistory } from "../types";
+import { Product, UserRole, InventoryHistory, ProductTypeCategory } from "../types";
 import {
   ListFilter,
   Plus,
@@ -80,7 +80,7 @@ interface InventoryManagerProps {
 export function InventoryManager({ currentRole, currentUserName }: InventoryManagerProps) {
   const [products, setProducts] = useState<Product[]>(db.getProducts());
   const [history, setHistory] = useState<InventoryHistory[]>(db.getInventoryHistory());
-  const [activeTab, setActiveTab] = useState<"LIST" | "HISTORY">("LIST");
+  const [activeTab, setActiveTab] = useState<"LIST" | "HISTORY" | "CATEGORIES">("LIST");
 
   // Search and Filters
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -117,13 +117,26 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
 
   // Print Label states
   const [printableLabel, setPrintableLabel] = useState<Product | null>(null);
+  const [labelSize, setLabelSize] = useState<"SMALL" | "SHOE" | "LARGE">("SMALL");
+  const [labelDesign, setLabelDesign] = useState<"MODERN" | "CLASSIC" | "MINIMAL" | "BOLD">("MODERN");
+  const [alignment, setAlignment] = useState<"LEFT" | "CENTER" | "RIGHT">("CENTER");
+  const [quantity, setQuantity] = useState<number>(1);
+  const [showOldPrice, setShowOldPrice] = useState<boolean>(true);
+  const [customDiscountPercent, setCustomDiscountPercent] = useState<number>(0);
+  const [askForLabelsProduct, setAskForLabelsProduct] = useState<{ prodToSave: Product; isNew: boolean } | null>(null);
 
   // Quick Adjustment states
   const [adjustTarget, setAdjustTarget] = useState<Product | null>(null);
   const [adjustValue, setAdjustValue] = useState<number>(0);
   const [adjustReason, setAdjustReason] = useState<string>("");
 
-  const categories = ["Ropa", "Zapatos", "Accesorios", "Lociones", "Bolsos"];
+  const [allCategories, setAllCategories] = useState<ProductTypeCategory[]>(() => db.getCategories());
+  const categories = useMemo(() => allCategories.map(c => c.name), [allCategories]);
+
+  // States for dynamic category modal/creator
+  const [showCategoryQuickAdd, setShowCategoryQuickAdd] = useState<boolean>(false);
+  const [quickCatName, setQuickCatName] = useState<string>("");
+  const [quickCatGroup, setQuickCatGroup] = useState<string>("MODA");
 
   const suppliers = useMemo(() => {
     const s = new Set<string>();
@@ -168,6 +181,7 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
   const refreshData = () => {
     setProducts(db.getProducts());
     setHistory(db.getInventoryHistory());
+    setAllCategories(db.getCategories());
   };
 
   // Guard sensitive actions
@@ -218,8 +232,15 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
         minStock: Number(formProduct.minStock || 0)
       } as Product;
       
+      const originalProduct = products.find(p => p.id === prodToSave.id);
+      const isPriceChanged = originalProduct && originalProduct.sellPrice !== prodToSave.sellPrice;
+
       db.saveProduct(prodToSave, reqName, reqRole, !isEditing);
       setShowForm(false);
+
+      if (isPriceChanged) {
+        setAskForLabelsProduct({ prodToSave, isNew: !isEditing });
+      }
     }
 
     refreshData();
@@ -234,10 +255,16 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
 
   const initNewProduct = () => {
     setIsEditing(false);
+    
+    // Auto-generate starting internal code and barcode!
+    const uniqueInt = Math.floor(100 + Math.random() * 900);
+    const generatedCode = `U-ROP-${uniqueInt}`;
+    const random12Dist = "770" + Math.floor(100000000 + Math.random() * 900000000).toString();
+
     setFormProduct({
       id: "P" + Date.now(),
-      code: "",
-      barCode: "",
+      code: generatedCode,
+      barCode: random12Dist,
       name: "",
       category: "Ropa",
       brand: "",
@@ -314,6 +341,20 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
             Historial de Ajustes
           </button>
           <button
+            onClick={() => {
+              setActiveTab("CATEGORIES");
+              refreshData();
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold tracking-tight transition ${
+              activeTab === "CATEGORIES"
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <ListFilter className="w-3.5 h-3.5" />
+            Categorías
+          </button>
+          <button
             onClick={initNewProduct}
             className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold tracking-tight transition shadow-sm"
           >
@@ -323,7 +364,7 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
         </div>
       </div>
 
-      {activeTab === "LIST" ? (
+      {activeTab === "LIST" && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar Filters */}
           <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4 h-fit">
@@ -516,7 +557,9 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
             </div>
           </div>
         </div>
-      ) : (
+      )}
+
+      {activeTab === "HISTORY" && (
         /* History of Adjustments View */
         <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl shadow-sm p-6 overflow-hidden">
           <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -587,6 +630,137 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
         </div>
       )}
 
+      {activeTab === "CATEGORIES" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-200">
+          {/* Form to create a new category */}
+          <div className="bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-6 shadow-sm space-y-4 h-fit">
+            <h3 className="text-sm font-bold text-gray-900 pb-3 border-b border-gray-100 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-indigo-600" />
+              Nueva Categoría de Producto
+            </h3>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!quickCatName.trim()) return;
+              const catToSave: ProductTypeCategory = {
+                name: quickCatName.trim(),
+                group: quickCatGroup
+              };
+              db.saveCategory(catToSave, currentUserName, currentRole);
+              setQuickCatName("");
+              refreshData();
+            }} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500">Nombre de la Categoría *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Conjuntos, Splash, Joyería..."
+                  value={quickCatName}
+                  onChange={(e) => setQuickCatName(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black focus:bg-white"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500">Grupo de Negocio *</label>
+                <select
+                  value={quickCatGroup}
+                  onChange={(e) => setQuickCatGroup(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black focus:bg-white"
+                >
+                  <option value="MODA">MODA</option>
+                  <option value="CALZADO">CALZADO</option>
+                  <option value="ACCESORIOS">ACCESORIOS</option>
+                  <option value="BELLEZA">BELLEZA</option>
+                  <option value="FRAGANCIAS">FRAGANCIAS</option>
+                  <option value="OTRO">OTRO</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 rounded-lg transition shadow-sm"
+              >
+                Crear Categoría
+              </button>
+            </form>
+            
+            <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs text-indigo-800 space-y-2">
+              <span className="font-bold flex items-center gap-1">Tipos de Productos</span>
+              <p className="text-indigo-600 leading-relaxed text-[11px]">
+                Añadir categorías permite clasificar de forma óptima los productos de JHALEX, permitiendo filtros rápidos en el POS y optimización de facturación.
+              </p>
+            </div>
+          </div>
+
+          {/* List of categories grouped by group */}
+          <div className="lg:col-span-2 bg-white/90 backdrop-blur-md border border-gray-100 rounded-2xl p-6 shadow-sm space-y-6">
+            <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900">Categorías Configuradas</h3>
+              <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full uppercase">
+                {allCategories.length} categorías en total
+              </span>
+            </div>
+
+            {/* Render categories grouped */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {["MODA", "CALZADO", "ACCESORIOS", "BELLEZA", "FRAGANCIAS", "OTRO"].map((currGroup) => {
+                const groupCategories = allCategories.filter(c => c.group === currGroup);
+                if (groupCategories.length === 0 && currGroup === "OTRO") return null;
+                return (
+                  <div key={currGroup} className="bg-gray-50/50 rounded-xl p-4 border border-gray-100 space-y-3">
+                    <h4 className="text-xs font-bold text-gray-900 border-b border-gray-100 pb-1 flex justify-between items-center">
+                      <span>{currGroup}</span>
+                      <span className="text-[10px] font-mono text-gray-400 font-normal">
+                        ({groupCategories.length})
+                      </span>
+                    </h4>
+                    
+                    {groupCategories.length === 0 ? (
+                      <p className="text-[11px] text-gray-400 italic">No hay categorías registradas en este grupo.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {groupCategories.map((cat) => {
+                          const prodCount = products.filter(p => p.category === cat.name).length;
+                          return (
+                            <div key={cat.name} className="flex justify-between items-center text-xs py-1.5 px-2 bg-white border border-gray-100 rounded-lg hover:shadow-xs transition">
+                              <span className="font-semibold text-gray-800">{cat.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-mono font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">
+                                  {prodCount} prods
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (prodCount > 0) {
+                                      alert("No puedes eliminar esta categoría porque hay productos vinculados a ella.");
+                                      return;
+                                    }
+                                    if (confirm(`¿Estás seguro de que deseas eliminar la categoría "${cat.name}"?`)) {
+                                      db.deleteCategory(cat.name, currentUserName, currentRole);
+                                      refreshData();
+                                    }
+                                  }}
+                                  className="text-gray-400 hover:text-red-600 transition p-1 rounded hover:bg-red-50"
+                                  title="Eliminar Categoría"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: ADD/EDIT FORM */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -618,16 +792,85 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500">Categoría *</label>
-                  <select
-                    value={formProduct.category}
-                    onChange={(e) => setFormProduct(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black focus:bg-white"
-                  >
-                    {categories.map((c, i) => (
-                      <option key={i} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  <div className="flex justify-between items-center text-xs">
+                    <label className="text-xs font-semibold text-gray-500">Categoría *</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowCategoryQuickAdd(!showCategoryQuickAdd)}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-0.5"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Añadir
+                    </button>
+                  </div>
+                  {showCategoryQuickAdd ? (
+                    <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-200 space-y-2 animate-in slide-in-from-top duration-150">
+                      <div className="text-[10px] font-bold text-gray-600">Crear Categoría al Vuelo</div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Nombre (ej: Crop Tops)"
+                          value={quickCatName}
+                          onChange={(e) => setQuickCatName(e.target.value)}
+                          className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none"
+                        />
+                        <select
+                          value={quickCatGroup}
+                          onChange={(e) => setQuickCatGroup(e.target.value)}
+                          className="bg-white border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none"
+                        >
+                          <option value="MODA">MODA</option>
+                          <option value="CALZADO">CALZADO</option>
+                          <option value="ACCESORIOS">ACCESORIOS</option>
+                          <option value="BELLEZA">BELLEZA</option>
+                          <option value="FRAGANCIAS">FRAGANCIAS</option>
+                        </select>
+                      </div>
+                      <div className="flex justify-end gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCategoryQuickAdd(false);
+                            setQuickCatName("");
+                          }}
+                          className="px-2 py-1 text-[10px] bg-gray-200 text-gray-600 rounded hover:bg-gray-300 transition"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = quickCatName.trim();
+                            if (!trimmed) return;
+                            const newCatRec: ProductTypeCategory = {
+                              name: trimmed,
+                              group: quickCatGroup
+                            };
+                            db.saveCategory(newCatRec, currentUserName, currentRole);
+                            // Refresh lists
+                            const updatedCats = db.getCategories();
+                            setAllCategories(updatedCats);
+                            setFormProduct(prev => ({ ...prev, category: trimmed }));
+                            setQuickCatName("");
+                            setShowCategoryQuickAdd(false);
+                          }}
+                          className="px-2.5 py-1 text-[10px] bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 transition"
+                        >
+                          Guardar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <select
+                      value={formProduct.category}
+                      onChange={(e) => setFormProduct(prev => ({ ...prev, category: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black focus:bg-white"
+                    >
+                      {categories.map((c, i) => (
+                        <option key={i} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -876,85 +1119,341 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
       )}
 
       {/* MODAL: PRINT BARCODE LABEL */}
-      {printableLabel && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-            <div className="bg-gray-100 p-4 border-b flex items-center justify-between">
-              <span className="font-bold text-xs text-gray-700 font-mono">Etiqueta de Código de Barras</span>
-              <button onClick={() => setPrintableLabel(null)}>
-                <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-              </button>
-            </div>
-            <div className="p-6 text-center space-y-4">
-              <div id="barcode-sticker-print" className="border-2 border-dashed border-gray-300 p-6 rounded-xl space-y-3 bg-white">
-                <div className="text-sm font-bold uppercase tracking-wider text-gray-900">JHALEX URBAN HOUSE</div>
-                <div className="text-xs text-gray-600 truncate px-2">{printableLabel.name}</div>
-                
-                <div className="py-2 flex justify-center">
-                  <VisualBarcode value={printableLabel.barCode} />
-                </div>
+      {printableLabel && (() => {
+        // Find previous price from history to suggest old price
+        let previousPrice = 0;
+        if (printableLabel.priceHistory && printableLabel.priceHistory.length > 1) {
+          const prior = printableLabel.priceHistory[printableLabel.priceHistory.length - 2];
+          if (prior) previousPrice = prior.newPrice;
+        }
+        
+        let discount = customDiscountPercent;
+        if (discount <= 0 && previousPrice > printableLabel.sellPrice) {
+          discount = Math.round(((previousPrice - printableLabel.sellPrice) / previousPrice) * 100);
+        }
+        
+        const price = printableLabel.sellPrice;
+        const oldPriceVal = previousPrice || (discount > 0 ? Math.round(printableLabel.sellPrice / (1 - discount / 100)) : 0);
 
-                <div className="flex justify-around text-xs border-t pt-2 font-mono">
-                  <div>
-                    <span className="text-gray-400 block text-[9px]">TALLA</span>
-                    <span className="font-bold">{printableLabel.size || "S/T"}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 block text-[9px]">REF</span>
-                    <span className="font-bold">{printableLabel.code}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 block text-[9px]">PRECIO</span>
-                    <span className="font-bold text-indigo-700">${printableLabel.sellPrice.toLocaleString("es-CO")}</span>
-                  </div>
-                </div>
-              </div>
+        // Alignment classes
+        const alignmentClass = alignment === "LEFT" ? "text-left items-start" : alignment === "RIGHT" ? "text-right items-end" : "text-center items-center";
 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const printContents = document.getElementById("barcode-sticker-print")?.innerHTML;
-                    const originalContents = document.body.innerHTML;
-                    
-                    const printWindow = window.open("", "_blank");
-                    if (printWindow) {
-                      printWindow.document.write(`
-                        <html>
-                          <head>
-                            <title>Etiqueta Jhalex</title>
-                            <style>
-                              body { font-family: sans-serif; text-align: center; padding: 20px; }
-                              .print-sticker { border: 1px solid #ccc; padding: 20px; max-width: 250px; margin: 0 auto; display: inline-block; border-radius: 8px; }
-                              .barcode-stripe { width: 1px; height: 40px; background: black; display: inline-block; }
-                            </style>
-                          </head>
-                          <body>
-                            <div class="print-sticker">${printContents}</div>
-                            <script>window.print();</script>
-                          </body>
-                        </html>
-                      `);
-                      printWindow.document.close();
-                    } else {
-                      window.print();
+        // Design style classes
+        let cardStyle = "border border-gray-200 bg-linear-to-b from-white to-gray-50/50 p-5 font-sans text-gray-900 rounded-2xl shadow-sm";
+        let headerStyle = "pb-2 mb-1.5 w-full flex flex-col items-center";
+        let brandStyle = "font-extrabold text-[11px] tracking-widest text-gray-900 uppercase font-sans";
+        let titleStyle = "text-xs font-bold text-gray-950 leading-tight tracking-tight";
+        let badgeStyle = "bg-gray-950 text-white text-[8px] px-2 py-0.5 rounded-full font-bold uppercase";
+        let priceStyle = "text-lg font-extrabold text-gray-900 tracking-tight";
+
+        if (labelDesign === "MINIMAL") {
+          cardStyle = "border border-gray-400 bg-white p-4 font-sans text-gray-900 rounded-none";
+          headerStyle = "text-xs font-mono uppercase tracking-widest text-gray-500 border-b border-gray-250 pb-1.5 mb-2 w-full";
+          brandStyle = "font-bold text-[9px] tracking-wide text-gray-800";
+          titleStyle = "text-[11px] font-light tracking-tight text-gray-950 leading-tight";
+          badgeStyle = "bg-gray-100 text-gray-800 text-[8px] px-1.5 py-0.5 font-mono uppercase";
+          priceStyle = "text-base font-mono text-gray-950 font-bold";
+        } else if (labelDesign === "CLASSIC") {
+          cardStyle = "border-4 border-gray-900 bg-white p-5 font-serif text-gray-950 rounded-xl shadow-xs";
+          headerStyle = "border-b-2 border-gray-900 pb-2 mb-2 w-full text-center";
+          brandStyle = "font-extrabold text-[11px] tracking-wider text-gray-950 uppercase";
+          titleStyle = "text-xs font-bold text-gray-950 leading-snug";
+          badgeStyle = "border border-gray-950 text-gray-950 text-[9px] px-2 py-0.5 uppercase tracking-wider font-semibold";
+          priceStyle = "text-base font-black text-gray-950";
+        } else if (labelDesign === "BOLD") {
+          cardStyle = "border border-black bg-gray-955 p-6 font-mono text-white rounded-2xl shadow-md";
+          headerStyle = "border-b border-gray-800 pb-2.5 mb-3 w-full";
+          brandStyle = "font-black text-[10px] tracking-widest text-indigo-400 uppercase";
+          titleStyle = "text-[11px] font-semibold tracking-wide text-white leading-tight uppercase";
+          badgeStyle = "bg-indigo-900/50 text-indigo-200 border border-indigo-700 text-[8px] px-2 py-0.5 rounded-md uppercase";
+          priceStyle = "text-lg font-black text-indigo-400";
+        }
+
+        const handlePrinterAction = () => {
+          const printContents = document.getElementById("barcode-sticker-print")?.innerHTML;
+          if (!printContents) return;
+          const printWindow = window.open("", "_blank");
+          if (printWindow) {
+            printWindow.document.write(`
+              <html>
+                <head>
+                  <title>Imprimir Etiquetas JHALEX</title>
+                  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+                  <script src="https://cdn.tailwindcss.com"></script>
+                  <style>
+                    body { font-family: 'Inter', sans-serif; background: white; color: black; padding: 10px; margin: 0; }
+                    @media print {
+                      body { padding: 0; margin: 0; }
+                      .print-page { page-break-after: always; display: flex !important; align-items: center; justify-content: center; width: 100%; height: 100%; }
                     }
-                  }}
-                  className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1.5"
-                >
-                  <Printer className="w-4 h-4" />
-                  Imprimir Etiqueta
-                </button>
-                <button
-                  onClick={() => {
-                    alert("Etiqueta guardada en cola local de simulación de lote.");
-                    setPrintableLabel(null);
-                  }}
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-xs font-semibold"
-                >
-                  Guardar
-                </button>
+                  </style>
+                </head>
+                <body onload="window.print(); window.close();">
+                  <div class="flex flex-col gap-6 items-center">
+                    \${Array.from({ length: quantity }).map(() => \`
+                      <div class="print-page border border-dashed border-gray-300 p-6 rounded-lg bg-white" style="width: \${
+                        labelSize === "SMALL" ? "240px" : labelSize === "SHOE" ? "320px" : "400px"
+                      }; min-height: \${
+                        labelSize === "SMALL" ? "180px" : labelSize === "SHOE" ? "220px" : "300px"
+                      }">
+                        \${printContents}
+                      </div>
+                    \`).join("")}
+                  </div>
+                </body>
+              </html>
+            `);
+            printWindow.document.close();
+          }
+          setPrintableLabel(null);
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-gray-100 flex flex-col md:flex-row max-h-[90vh]">
+              
+              {/* Left Settings Panel */}
+              <div className="p-5 md:w-1/2 border-r border-gray-100 space-y-4 overflow-y-auto w-full">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-xs text-gray-900 uppercase tracking-wider font-sans">Ajustar Ticket de Etiqueta</span>
+                  <span className="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-mono">REF: {printableLabel.code}</span>
+                </div>
+
+                {/* labelSize */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-gray-500 block uppercase">Formato</span>
+                  <div className="grid grid-cols-3 gap-1">
+                    {(["SMALL", "SHOE", "LARGE"] as const).map((sz) => (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => setLabelSize(sz)}
+                        className={`py-1 rounded-md text-[10px] font-bold ${
+                          labelSize === sz ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-205"
+                        }`}
+                      >
+                        {sz === "SMALL" ? "Prenda" : sz === "SHOE" ? "Zapato" : "Grande"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* labelDesign */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-gray-500 block uppercase">Diseño estético</span>
+                  <div className="grid grid-cols-4 gap-1">
+                    {(["MODERN", "CLASSIC", "MINIMAL", "BOLD"] as const).map((ds) => (
+                      <button
+                        key={ds}
+                        type="button"
+                        onClick={() => setLabelDesign(ds)}
+                        className={`py-1 rounded-md text-[9px] font-bold ${
+                          labelDesign === ds ? "bg-gray-900 text-white" : "bg-gray-100 hover:bg-gray-250 text-gray-600"
+                        }`}
+                      >
+                        {ds}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* alignment */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-gray-500 block uppercase">Alineación</span>
+                  <div className="grid grid-cols-3 gap-1">
+                    {(["LEFT", "CENTER", "RIGHT"] as const).map((al) => (
+                      <button
+                        key={al}
+                        type="button"
+                        onClick={() => setAlignment(al)}
+                        className={`py-1 rounded-md text-[10px] font-bold ${
+                          alignment === al ? "bg-gray-900 text-white" : "bg-gray-105 hover:bg-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {al === "LEFT" ? "Izq" : al === "CENTER" ? "Centro" : "Der"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quantity */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-gray-500 block uppercase">Cantidad de Copias</span>
+                  <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      className="w-7 h-7 bg-white hover:bg-gray-100 border text-gray-700 rounded-lg flex items-center justify-center font-bold"
+                    >
+                      -
+                    </button>
+                    <span className="font-mono font-bold text-sm w-12 text-center text-gray-805">{quantity} copias</span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => q + 1)}
+                      className="w-7 h-7 bg-white hover:bg-gray-100 border text-gray-700 rounded-lg flex items-center justify-center font-bold"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Old Price Toggles */}
+                <div className="space-y-2 border-t pt-3 mt-2">
+                  <div className="flex justify-between items-center text-xs text-gray-700">
+                    <span className="font-bold">Mostrar Precio Anterior</span>
+                    <input
+                      type="checkbox"
+                      checked={showOldPrice}
+                      onChange={(e) => setShowOldPrice(e.target.checked)}
+                      className="accent-black"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] text-gray-500">
+                      <span>Descuento Manual:</span>
+                      <strong className="text-gray-900">{customDiscountPercent}%</strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="80"
+                      step="5"
+                      value={customDiscountPercent}
+                      onChange={(e) => setCustomDiscountPercent(Number(e.target.value))}
+                      className="w-full accent-black h-1 bg-gray-100 rounded"
+                    />
+                  </div>
+                </div>
               </div>
+
+              {/* Right Preview Panel */}
+              <div className="p-5 md:w-1/2 bg-gray-50 flex flex-col justify-between overflow-y-auto">
+                <div className="flex justify-between items-center pb-2 mb-3 border-b">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest font-sans">Vista Previa Real</span>
+                  <button onClick={() => setPrintableLabel(null)}>
+                    <X className="w-4 h-4 text-gray-400 hover:text-gray-650" />
+                  </button>
+                </div>
+
+                {/* Interactive ticket */}
+                <div className="flex-1 flex items-center justify-center py-4">
+                  <div 
+                    id="barcode-sticker-print" 
+                    className={`${cardStyle} ${alignmentClass} w-full max-w-[245px] shadow-sm`}
+                  >
+                    <div className={headerStyle}>
+                      <span className={brandStyle}>JHALEX URBAN HOUSE</span>
+                      <span className="text-[7px] font-mono tracking-widest block text-gray-400 mt-0.5">ESTILO URBANO</span>
+                    </div>
+
+                    <div className="space-y-1 w-full">
+                      <div className={titleStyle}>{printableLabel.name}</div>
+                      <div className="flex gap-1 justify-center flex-wrap pt-0.5">
+                        <span className={badgeStyle}>TALLA: {printableLabel.size || "ÚNICA"}</span>
+                        {printableLabel.color && (
+                          <span className={`${badgeStyle} bg-gray-150 text-gray-700`}>{printableLabel.color}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="py-2.5 w-full flex flex-col items-center">
+                      <div className="bg-white p-1 rounded border border-gray-150">
+                        <VisualBarcode value={printableLabel.barCode} />
+                      </div>
+                      <span className="text-[8px] font-mono tracking-wider text-gray-400 block mt-1">Ref: {printableLabel.code}</span>
+                    </div>
+
+                    <div className="w-full border-t border-dashed pt-2 mt-1">
+                      {showOldPrice && oldPriceVal > price && (
+                        <div className="flex justify-center items-center gap-1.5 text-[9px] mb-0.5">
+                          <span className="text-gray-400 line-through">${oldPriceVal.toLocaleString()}</span>
+                          {discount > 0 && <span className="bg-red-100 text-red-800 font-bold px-1 rounded">-{discount}%</span>}
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-[8px] tracking-wider font-mono text-gray-400 uppercase block leading-none mb-1">Precio Final</span>
+                        <span className={priceStyle}>${price.toLocaleString()} COP</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 space-y-2">
+                  <button
+                    type="button"
+                    onClick={handlePrinterAction}
+                    className="w-full bg-indigo-600 text-white hover:bg-indigo-700 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Mandar a Impresora ({quantity} Copias)
+                  </button>
+                  <button
+                    onClick={() => setPrintableLabel(null)}
+                    type="button"
+                    className="w-full bg-white border text-gray-650 font-semibold py-1.5 rounded-lg text-xs hover:bg-gray-100 transition"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: PRICE CHANGE PROMPT */}
+      {askForLabelsProduct && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-55 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 border border-gray-150">
+            <div className="flex items-center gap-3 text-indigo-600">
+              <div className="bg-indigo-50 p-2.5 rounded-xl">
+                <Barcode className="w-6 h-6 text-indigo-650" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Cambio de Precio Detectado</h3>
+                <h4 className="text-sm font-black text-gray-950 tracking-tight">¿Desea generar nuevas etiquetas?</h4>
+              </div>
+            </div>
+            
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Hemos registrado el cambio de precio de <strong className="text-gray-900">"{askForLabelsProduct.prodToSave.name}"</strong> en el sistema con éxito.
+            </p>
+
+            <div className="bg-gray-50 rounded-xl p-3 text-xs flex justify-between font-mono border">
+              <div>
+                <span className="text-gray-400 block text-[9px] uppercase">Código</span>
+                <span className="font-semibold text-gray-800">{askForLabelsProduct.prodToSave.code}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-gray-400 block text-[9px] uppercase">Nuevo Precio</span>
+                <span className="font-bold text-indigo-600">${askForLabelsProduct.prodToSave.sellPrice.toLocaleString()} COP</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const productToPrint = askForLabelsProduct.prodToSave;
+                  setAskForLabelsProduct(null);
+                  setPrintableLabel(productToPrint); // Triggers advanced label print dialog immediately!
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-xs transition"
+              >
+                Sí, imprimir nuevas etiquetas
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAskForLabelsProduct(null);
+                }}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-2.5 px-4 rounded-xl transition"
+              >
+                No, solamente actualizar
+              </button>
             </div>
           </div>
         </div>

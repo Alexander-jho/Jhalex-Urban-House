@@ -211,14 +211,12 @@ export function DescuentosPromociones({ currentRole, currentUserName }: Descuent
                   <select
                     value={newPromo.category || ""}
                     onChange={(e) => setNewPromo(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full bg-gray-50 border p-2 rounded"
+                    className="w-full bg-gray-50 border p-2 rounded text-xs focus:outline-none"
                   >
                     <option value="">Afectar Todo el Catálogo</option>
-                    <option value="Ropa">Ropa de Moda</option>
-                    <option value="Zapatos">Zapatos & Sneakers</option>
-                    <option value="Accesorios">Accesorios & Caps</option>
-                    <option value="Lociones">Lociones & Fragancias</option>
-                    <option value="Bolsos">Bolsos & Backpacks</option>
+                    {db.getCategories().map(cat => (
+                      <option key={cat.name} value={cat.name}>{cat.name} ({cat.group})</option>
+                    ))}
                   </select>
                 </div>
               </div>

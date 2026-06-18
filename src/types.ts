@@ -16,6 +16,11 @@ export interface CompanyConfig {
   invoiceMessage: string;
 }
 
+export interface ProductTypeCategory {
+  name: string;
+  group: string;
+}
+
 export enum UserRole {
   ADMIN = "ADMIN",
   SELLER = "VENDEDOR"
@@ -26,6 +31,14 @@ export interface SystemUser {
   name: string;
   role: UserRole;
   pin: string; // PIN coded for secure access
+}
+
+export interface PriceHistoryLog {
+  id: string;
+  previousPrice: number;
+  newPrice: number;
+  date: string;
+  user: string;
 }
 
 export interface Product {
@@ -45,6 +58,7 @@ export interface Product {
   sellPrice: number;
   stock: number;
   minStock: number;
+  priceHistory?: PriceHistoryLog[];
 }
 
 export interface InventoryHistory {
@@ -149,6 +163,9 @@ export interface Sale {
   saleType: SaleType;
   creditDetails?: CreditDetails;
   status: "ACTIVA" | "CANCELADA";
+  originalTotal?: number;
+  roundedTotal?: number;
+  roundingDifference?: number;
 }
 
 export interface CashTransaction {
@@ -162,6 +179,36 @@ export interface CashTransaction {
   authorizedBy: string;
 }
 
+export interface CashDrawerOpening {
+  id: string;
+  date: string;
+  time: string;
+  user: string;
+  reason: "VENTA" | "RETIRO" | "CAMBIO" | "INICIO_JORNADA" | "MANUAL";
+  details: string;
+  authorizedBy?: string;
+}
+
+export interface CashDenominations {
+  b100k: number;
+  b50k: number;
+  b20k: number;
+  b10k: number;
+  b5k: number;
+  b2k: number;
+  b1k: number;
+  m1000: number;
+  m500: number;
+  m200: number;
+  m100: number;
+  m50: number;
+}
+
+export interface DrawerConfig {
+  connectionMethod: "RJ11" | "USB" | "SERIAL" | "NONE";
+  autoOpenOnCashSale: boolean;
+}
+
 export interface CashBoxSession {
   id: string;
   openedAt: string;
@@ -169,12 +216,14 @@ export interface CashBoxSession {
   openedBy: string;
   closedBy: string | null;
   initialBase: number;
+  initialBaseDenominations?: CashDenominations;
   salesSum: number;
   inflowsSum: number;
   outflowsSum: number;
   creditsSum: number;
   expectedCash: number;
   realCash: number | null;
+  realCashDenominations?: CashDenominations;
   difference: number | null;
   status: "ABIERTA" | "CERRADA";
 }

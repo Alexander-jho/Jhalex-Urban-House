@@ -200,6 +200,37 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
     return { subtotal, discAmount, total };
   }, [cart, discountPercent]);
 
+  // Rounding variables - configurable
+  const roundingData = useMemo(() => {
+    const rConfig = db.getRoundingConfig();
+    const isEfectivo = paymentMethod === PaymentMethod.CASH;
+    if (!rConfig.enabled || !isEfectivo || cartTotals.total <= 0) {
+      return {
+        originalTotal: cartTotals.total,
+        roundedTotal: cartTotals.total,
+        roundingDifference: 0
+      };
+    }
+    const step = rConfig.step || 100;
+    const remainder = cartTotals.total % step;
+    let roundedTotal = cartTotals.total;
+    let roundingDifference = 0;
+    if (remainder < step / 2) {
+      roundedTotal = cartTotals.total - remainder;
+      roundingDifference = -remainder;
+    } else {
+      roundedTotal = cartTotals.total + (step - remainder);
+      roundingDifference = (step - remainder);
+    }
+    return {
+      originalTotal: cartTotals.total,
+      roundedTotal,
+      roundingDifference
+    };
+  }, [cartTotals.total, paymentMethod]);
+
+  const [drawerOpenAlert, setDrawerOpenAlert] = useState<string>("");
+
   // Handle coupon redemption
   const selectedClientData = useMemo(() => {
     return clientes.find(c => c.id === selectedClientId) || null;
@@ -249,6 +280,13 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
       return;
     }
 
+    // Verify cash register session is active
+    const activeSession = db.getCashBoxSessions().find(s => s.status === "ABIERTA");
+    if (!activeSession) {
+      triggerError("EL SISTEMA SE ENCUENTRA INOPERABLE para ventas POS. Debe iniciar jornada y registrar la Apertura de Caja.");
+      return;
+    }
+
     const seller = vendedores.find(v => v.id === selectedSellerId);
     const client = clientes.find(c => c.id === selectedClientId);
 
@@ -267,9 +305,9 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
       creditDetails = {
         clientId: client.id,
         clientName: client.name,
-        totalAmount: cartTotals.total,
+        totalAmount: roundingData.roundedTotal,
         initialDeposit: Number(creditInitialDeposit),
-        pendingBalance: cartTotals.total - Number(creditInitialDeposit),
+        pendingBalance: roundingData.roundedTotal - Number(creditInitialDeposit),
         dueDate: creditDueDate,
         installments: [],
         status: "PENDIENTE"
@@ -289,15 +327,29 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
       subtotal: cartTotals.subtotal,
       discountPercent: discountPercent,
       discountAmount: cartTotals.discAmount,
-      total: cartTotals.total,
+      total: roundingData.roundedTotal,
       paymentMethod: paymentMethod,
       saleType: saleType,
       creditDetails,
-      status: "ACTIVA"
+      status: "ACTIVA",
+      originalTotal: roundingData.originalTotal,
+      roundedTotal: roundingData.roundedTotal,
+      roundingDifference: roundingData.roundingDifference
     };
 
     // Save transaction
     db.createSale(newSale, currentUserName, currentRole);
+
+    // If Efectivo (Cash) payment, automatically trigger cash drawer opening signal
+    if (paymentMethod === PaymentMethod.CASH && saleType === SaleType.CASH) {
+      db.logDrawerOpening(
+        currentUserName,
+        "VENTA",
+        `Venta POS Factura ${cleanInvoiceNumber} por total de $${roundingData.roundedTotal.toLocaleString("es-CO")}`
+      );
+      setDrawerOpenAlert(`¡Señal de Apertura Enviada! Cajón de dinero abierto automáticamente método [${db.getDrawerConfig().connectionMethod}].`);
+      setTimeout(() => setDrawerOpenAlert(""), 4500);
+    }
 
     // Refresh memory states
     refreshData();
@@ -355,7 +407,7 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
     );
   }, [products, productQuery]);
 
-  const changeToGive = Math.max(0, cashReceived - cartTotals.total);
+  const changeToGive = Math.max(0, cashReceived - roundingData.roundedTotal);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -744,10 +796,32 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
             </div>
           </div>
 
-          <div className="flex justify-between items-center py-2">
-            <span className="font-bold text-sm tracking-widest text-indigo-300">TOTAL FACTURADO:</span>
-            <span className="font-mono font-bold text-xl text-white">
-              ${cartTotals.total.toLocaleString("es-CO")}
+          <div className="flex justify-between items-center py-2 border-b border-white/5">
+            <span className="font-bold text-sm tracking-widest text-indigo-300">TOTAL ORIGINAL:</span>
+            <span className="font-mono font-bold text-lg text-white">
+              ${roundingData.originalTotal.toLocaleString("es-CO")}
+            </span>
+          </div>
+
+          {roundingData.roundingDifference !== 0 && (
+            <div className="bg-indigo-950/70 border border-indigo-900 rounded-xl p-2.5 my-2 text-[11px] text-indigo-200 flex flex-col gap-1.5 animate-in slide-in-from-bottom duration-150">
+              <div className="flex justify-between">
+                <span>Método de Pago:</span>
+                <span className="font-semibold text-emerald-400">EFECTIVO (Redondeado)</span>
+              </div>
+              <div className="flex justify-between text-yellow-400 font-mono">
+                <span>Diferencia Redondeo ($100 COP):</span>
+                <span>
+                  {roundingData.roundingDifference > 0 ? "+" : ""}${roundingData.roundingDifference.toLocaleString("es-CO")}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center py-2.5 bg-indigo-950/40 px-3 rounded-xl border border-white/5 my-1">
+            <span className="font-black text-xs tracking-widest text-emerald-300">TOTAL A COBRAR:</span>
+            <span className="font-mono font-bold text-2xl text-emerald-400">
+              ${roundingData.roundedTotal.toLocaleString("es-CO")}
             </span>
           </div>
 
@@ -774,6 +848,18 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
         <div className="fixed bottom-4 right-4 bg-emerald-100 border border-emerald-200 text-emerald-800 p-4 rounded-xl shadow-2xl flex items-center gap-3 max-w-sm animate-pulse z-50">
           <Check className="w-5 h-5 text-emerald-600 shrink-0" />
           <span className="text-xs">{successAlert}</span>
+        </div>
+      )}
+
+      {drawerOpenAlert && (
+        <div className="fixed bottom-4 right-4 bg-yellow-50 border border-yellow-200 text-yellow-900 p-4 rounded-xl shadow-2xl flex items-center gap-3 max-w-sm z-50 animate-bounce">
+          <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center shrink-0">
+            <DollarSign className="w-5 h-5 text-yellow-600 shrink-0 animate-pulse" />
+          </div>
+          <div className="text-left text-[11px]">
+            <strong className="block text-[10px] uppercase font-black text-yellow-700 tracking-wider">Apertura de Cajón</strong>
+            <span>{drawerOpenAlert}</span>
+          </div>
         </div>
       )}
 

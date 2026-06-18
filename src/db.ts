@@ -17,7 +17,11 @@ import {
   Promotion,
   AuditLog,
   PaymentMethod,
-  SaleType
+  SaleType,
+  ProductTypeCategory,
+  CashDenominations,
+  CashDrawerOpening,
+  DrawerConfig
 } from "./types";
 
 // Keys for LocalStorage
@@ -33,8 +37,51 @@ const KEYS = {
   PROMOTION: "jhalex_promotion",
   AUDITS: "jhalex_audits",
   VISUAL_THEME: "jhalex_theme",
-  ACTIVE_USER: "jhalex_active_user"
+  ACTIVE_USER: "jhalex_active_user",
+  CATEGORIES: "jhalex_categories",
+  DRAWER_OPENINGS: "jhalex_drawer_openings",
+  DRAWER_CONFIG: "jhalex_drawer_config"
 };
+
+// INITIAL PRE-SET CATEGORIES
+const INITIAL_CATEGORIES: ProductTypeCategory[] = [
+  // MODA
+  { name: "Ropa", group: "MODA" },
+  { name: "Camisas", group: "MODA" },
+  { name: "Pantalones", group: "MODA" },
+  { name: "Chaquetas", group: "MODA" },
+  { name: "Vestidos", group: "MODA" },
+  { name: "Conjuntos", group: "MODA" },
+  { name: "Ropa urbana", group: "MODA" },
+
+  // CALZADO
+  { name: "Zapatos", group: "CALZADO" },
+  { name: "Tenis", group: "CALZADO" },
+  { name: "Sandalias", group: "CALZADO" },
+  { name: "Botas", group: "CALZADO" },
+
+  // ACCESORIOS
+  { name: "Gorras", group: "ACCESORIOS" },
+  { name: "Bolsos", group: "ACCESORIOS" },
+  { name: "Carteras", group: "ACCESORIOS" },
+  { name: "Cinturones", group: "ACCESORIOS" },
+  { name: "Joyería", group: "ACCESORIOS" },
+  { name: "Accesorios de moda", group: "ACCESORIOS" },
+
+  // BELLEZA
+  { name: "Maquillajes", group: "BELLEZA" },
+  { name: "Labiales", group: "BELLEZA" },
+  { name: "Bases", group: "BELLEZA" },
+  { name: "Sombras", group: "BELLEZA" },
+  { name: "Polvos", group: "BELLEZA" },
+  { name: "Correctores", group: "BELLEZA" },
+  { name: "Productos cosméticos", group: "BELLEZA" },
+
+  // FRAGANCIAS
+  { name: "Lociones", group: "FRAGANCIAS" },
+  { name: "Perfumes", group: "FRAGANCIAS" },
+  { name: "Splash", group: "FRAGANCIAS" }
+];
 
 // Initial Pre-seed Data
 const INITIAL_COMPANY: CompanyConfig = {
@@ -79,6 +126,9 @@ export function initDB(): void {
     localStorage.removeItem(KEYS.AUDITS);
     localStorage.removeItem(KEYS.SESSIONS);
     localStorage.removeItem(KEYS.ACTIVE_USER);
+    localStorage.removeItem(KEYS.CATEGORIES);
+    localStorage.removeItem(KEYS.DRAWER_OPENINGS);
+    localStorage.removeItem(KEYS.DRAWER_CONFIG);
     localStorage.removeItem("admin_pin");
     localStorage.removeItem("seller_pin");
     localStorage.setItem(DB_RESET_KEY, "true");
@@ -86,6 +136,18 @@ export function initDB(): void {
 
   if (!localStorage.getItem(KEYS.COMPANY)) {
     localStorage.setItem(KEYS.COMPANY, JSON.stringify(INITIAL_COMPANY));
+  }
+  if (!localStorage.getItem(KEYS.CATEGORIES)) {
+    localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(INITIAL_CATEGORIES));
+  }
+  if (!localStorage.getItem(KEYS.DRAWER_CONFIG)) {
+    localStorage.setItem(KEYS.DRAWER_CONFIG, JSON.stringify({
+      connectionMethod: "RJ11",
+      autoOpenOnCashSale: true
+    }));
+  }
+  if (!localStorage.getItem(KEYS.DRAWER_OPENINGS)) {
+    localStorage.setItem(KEYS.DRAWER_OPENINGS, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.PRODUCTS)) {
     localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
@@ -203,6 +265,15 @@ export const db = {
   saveProduct: (product: Product, requestorName: string, requestorRole: UserRole, isNew: boolean): void => {
     const products = db.getProducts();
     if (isNew) {
+      product.priceHistory = [
+        {
+          id: "PRC_INIT_" + Date.now(),
+          previousPrice: 0,
+          newPrice: product.sellPrice,
+          date: new Date().toISOString().split("T")[0],
+          user: requestorName
+        }
+      ];
       products.push(product);
       db.logAudit(requestorName, requestorRole, "CREAR_PRODUCTO", "Creación", `Añadió producto: [${product.code}] ${product.name}, stock inicial: ${product.stock}`);
       // Record initial inventory entry
@@ -223,6 +294,27 @@ export const db = {
       if (index !== -1) {
         const prev = products[index];
         const diffStock = product.stock - prev.stock;
+        
+        // Handle price changes and save history
+        const updatedHistory = prev.priceHistory ? [...prev.priceHistory] : [];
+        if (prev.sellPrice !== product.sellPrice) {
+          updatedHistory.push({
+            id: "PRC_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+            previousPrice: prev.sellPrice,
+            newPrice: product.sellPrice,
+            date: new Date().toISOString().split("T")[0],
+            user: requestorName
+          });
+          db.logAudit(
+            requestorName,
+            requestorRole,
+            "CAMBIO_PRECIO",
+            "Mantenimiento",
+            `Actualizó precio de [${product.code}] ${product.name}: de $${prev.sellPrice.toLocaleString()} a $${product.sellPrice.toLocaleString()}`
+          );
+        }
+        
+        product.priceHistory = updatedHistory;
         products[index] = product;
         db.logAudit(requestorName, requestorRole, "EDITAR_PRODUCTO", "Modificación", `Editó producto: [${product.code}] ${product.name}`);
         
@@ -629,7 +721,7 @@ export const db = {
     );
   },
 
-  openCashBox: (baseAmount: number, requestorName: string, requestorRole: UserRole): boolean => {
+  openCashBox: (baseAmount: number, requestorName: string, requestorRole: UserRole, denominations?: CashDenominations): boolean => {
     const sessions = db.getCashBoxSessions();
     const active = sessions.find(s => s.status === "ABIERTA");
     if (active) return false; // Already open
@@ -642,6 +734,7 @@ export const db = {
       openedBy: requestorName,
       closedBy: null,
       initialBase: baseAmount,
+      initialBaseDenominations: denominations,
       salesSum: 0,
       inflowsSum: 0,
       outflowsSum: 0,
@@ -662,10 +755,14 @@ export const db = {
       "Apertura",
       `Apertura de caja con base inicial de $${baseAmount.toLocaleString("es-CO")}`
     );
+
+    // Automatically log drawer opening on shift initialization
+    db.logDrawerOpening(requestorName, "INICIO_JORNADA", `Apertura inicial para sesión ${nextSessionId}`);
+
     return true;
   },
 
-  closeCashBox: (realCashAmount: number, requestorName: string, requestorRole: UserRole): CashBoxSession | null => {
+  closeCashBox: (realCashAmount: number, requestorName: string, requestorRole: UserRole, denominations?: CashDenominations): CashBoxSession | null => {
     const sessions = db.getCashBoxSessions();
     const activeIndex = sessions.findIndex(s => s.status === "ABIERTA");
     if (activeIndex === -1) return null;
@@ -674,6 +771,7 @@ export const db = {
     s.closedAt = new Date().toISOString();
     s.closedBy = requestorName;
     s.realCash = realCashAmount;
+    s.realCashDenominations = denominations;
     s.difference = realCashAmount - s.expectedCash;
     s.status = "CERRADA";
 
@@ -790,5 +888,97 @@ export const db = {
     } catch {
       return false;
     }
+  },
+
+  // Category management
+  getCategories: (): ProductTypeCategory[] => {
+    return getStore<ProductTypeCategory[]>(KEYS.CATEGORIES);
+  },
+
+  saveCategory: (category: ProductTypeCategory, requestorName: string, requestorRole: UserRole): void => {
+    const categories = db.getCategories();
+    const index = categories.findIndex(c => c.name.trim().toLowerCase() === category.name.trim().toLowerCase());
+    if (index === -1) {
+      categories.push(category);
+      db.logAudit(
+        requestorName,
+        requestorRole,
+        "CREAR_CATEGORIA",
+        "Registro",
+        `Creó categoría de producto: ${category.name} en grupo ${category.group}`
+      );
+    } else {
+      categories[index] = category;
+      db.logAudit(
+        requestorName,
+        requestorRole,
+        "EDITAR_CATEGORIA",
+        "Modificación",
+        `Actualizó grupo de categoría ${category.name} a ${category.group}`
+      );
+    }
+    setStore(KEYS.CATEGORIES, categories);
+  },
+
+  deleteCategory: (name: string, requestorName: string, requestorRole: UserRole): boolean => {
+    const categories = db.getCategories();
+    const target = categories.find(c => c.name === name);
+    if (!target) return false;
+    const filtered = categories.filter(c => c.name !== name);
+    setStore(KEYS.CATEGORIES, filtered);
+    db.logAudit(
+      requestorName,
+      requestorRole,
+      "ELIMINAR_CATEGORIA",
+      "Eliminación",
+      `Eliminó categoría de producto: ${name}`
+    );
+    return true;
+  },
+
+  getDrawerConfig: (): DrawerConfig => {
+    return getStore<DrawerConfig>(KEYS.DRAWER_CONFIG) || { connectionMethod: "RJ11", autoOpenOnCashSale: true };
+  },
+
+  saveDrawerConfig: (config: DrawerConfig): void => {
+    setStore(KEYS.DRAWER_CONFIG, config);
+  },
+
+  getDrawerOpenings: (): CashDrawerOpening[] => {
+    return getStore<CashDrawerOpening[]>(KEYS.DRAWER_OPENINGS) || [];
+  },
+
+  logDrawerOpening: (
+    user: string,
+    reason: "VENTA" | "RETIRO" | "CAMBIO" | "INICIO_JORNADA" | "MANUAL",
+    details: string,
+    authorizedBy?: string
+  ): void => {
+    const list = db.getDrawerOpenings();
+    const d = new Date();
+    const newOpening: CashDrawerOpening = {
+      id: "OPEN_" + Math.random().toString(36).substring(2, 9).toUpperCase(),
+      date: d.toISOString().split("T")[0],
+      time: d.toTimeString().split(" ")[0].substring(0, 5),
+      user,
+      reason,
+      details,
+      authorizedBy
+    };
+    list.unshift(newOpening);
+    setStore(KEYS.DRAWER_OPENINGS, list);
+    console.log(`[CAJÓN FISICO] Señal de apertura física emitida. Conexión: ${db.getDrawerConfig().connectionMethod}. Razón: ${reason} - ${details}`);
+  },
+
+  getRoundingConfig: (): { enabled: boolean; step: number } => {
+    const val = localStorage.getItem("jhalex_rounding_config");
+    if (!val) {
+      return { enabled: true, step: 100 };
+    }
+    return JSON.parse(val);
+  },
+
+  saveRoundingConfig: (config: { enabled: boolean; step: number }): void => {
+    localStorage.setItem("jhalex_rounding_config", JSON.stringify(config));
   }
 };
