@@ -818,7 +818,7 @@ export const db = {
     );
   },
 
-  openCashBox: (baseAmount: number, requestorName: string, requestorRole: UserRole, denominations?: CashDenominations): boolean => {
+  openCashBox: (baseAmount: number, requestorName: string, requestorRole: UserRole, denominations?: CashDenominations, vendedorId?: string, vendedorName?: string): boolean => {
     const sessions = db.getCashBoxSessions();
     const active = sessions.find(s => s.status === "ABIERTA");
     if (active) return false; // Already open
@@ -839,7 +839,9 @@ export const db = {
       expectedCash: baseAmount,
       realCash: null,
       difference: null,
-      status: "ABIERTA"
+      status: "ABIERTA",
+      vendedorId,
+      vendedorName
     };
 
     sessions.unshift(newSession);
@@ -850,7 +852,7 @@ export const db = {
       requestorRole,
       "APERTURA_CAJA",
       "Apertura",
-      `Apertura de caja con base inicial de $${baseAmount.toLocaleString("es-CO")}`
+      `Apertura de caja con base inicial de $${baseAmount.toLocaleString("es-CO")}${vendedorName ? ` e indicada para vendedor [${vendedorName}]` : ""}`
     );
 
     // Automatically log drawer opening on shift initialization

@@ -115,7 +115,13 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
   const [showAdminPinModal, setShowAdminPinModal] = useState<boolean>(false);
   const [adminPinCode, setAdminPinCode] = useState<string>("");
   const [adminPinError, setAdminPinError] = useState<string>("");
-  const [actionToAuth, setActionToAuth] = useState<{ type: "CANCEL_SALE"; targetId: string } | null>(null);
+  const [actionToAuth, setActionToAuth] = useState<{
+    type: "CANCEL_SALE" | "APPLY_DISCOUNT" | "EDIT_ITEM_PRICE";
+    targetId?: string;
+    targetVal?: number;
+    productId?: string;
+    newPrice?: number;
+  } | null>(null);
 
   // Alert system
   const [errorAlert, setErrorAlert] = useState<string>("");
@@ -211,6 +217,61 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
 
   const removeItem = (productId: string) => {
     setCart(cart.filter(item => item.productId !== productId));
+  };
+
+  const handleDiscountChange = (newVal: number) => {
+    if (newVal === 0) {
+      setDiscountPercent(0);
+      return;
+    }
+    if (currentRole === UserRole.SELLER) {
+      setActionToAuth({
+        type: "APPLY_DISCOUNT",
+        targetVal: newVal
+      });
+      setAdminPinCode("");
+      setAdminPinError("");
+      setShowAdminPinModal(true);
+    } else {
+      setDiscountPercent(newVal);
+    }
+  };
+
+  const applyItemPriceChange = (productId: string, newPrice: number) => {
+    const updated = cart.map(item => {
+      if (item.productId === productId) {
+        const itemCopy = { ...item, sellPrice: newPrice };
+        itemCopy.total = itemCopy.quantity * itemCopy.sellPrice * (1 - itemCopy.discountPercent / 100);
+        return itemCopy;
+      }
+      return item;
+    });
+    setCart(updated);
+    setSuccessAlert(`Precio unitario autorizado a $${newPrice.toLocaleString("es-CO")}`);
+    setTimeout(() => setSuccessAlert(""), 2000);
+  };
+
+  const triggerEditItemPrice = (productId: string, currentPrice: number) => {
+    const priceStr = prompt("Ingrese el nuevo precio unitario para este producto:", currentPrice.toString());
+    if (priceStr === null) return;
+    const newPrice = parseFloat(priceStr);
+    if (isNaN(newPrice) || newPrice <= 0) {
+      triggerError("El precio debe ser un valor numérico positivo");
+      return;
+    }
+
+    if (currentRole === UserRole.SELLER) {
+      setActionToAuth({
+        type: "EDIT_ITEM_PRICE",
+        productId,
+        newPrice
+      });
+      setAdminPinCode("");
+      setAdminPinError("");
+      setShowAdminPinModal(true);
+    } else {
+      applyItemPriceChange(productId, newPrice);
+    }
   };
 
   const triggerError = (msg: string) => {
@@ -516,14 +577,22 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
     const matchOK = db.verifyPIN(UserRole.ADMIN, adminPinCode);
     if (matchOK) {
       setShowAdminPinModal(false);
-      if (actionToAuth && actionToAuth.type === "CANCEL_SALE") {
-        const ok = db.cancelSale(actionToAuth.targetId, "Cancelación de venta POS", currentUserName, currentRole);
-        if (ok) {
-          refreshData();
-          setSuccessAlert("Factura anulada correctly. Inventario reestablecido.");
-          setTimeout(() => setSuccessAlert(""), 2000);
-        } else {
-          triggerError("La factura no pudo ser cancelada o ya se encontraba cancelada.");
+      if (actionToAuth) {
+        if (actionToAuth.type === "CANCEL_SALE" && actionToAuth.targetId) {
+          const ok = db.cancelSale(actionToAuth.targetId, "Cancelación de venta POS", currentUserName, currentRole);
+          if (ok) {
+            refreshData();
+            setSuccessAlert("Factura anulada correctly. Inventario reestablecido.");
+            setTimeout(() => setSuccessAlert(""), 2000);
+          } else {
+            triggerError("La factura no pudo ser cancelada o ya se encontraba cancelada.");
+          }
+        } else if (actionToAuth.type === "APPLY_DISCOUNT" && actionToAuth.targetVal !== undefined) {
+          setDiscountPercent(actionToAuth.targetVal);
+          setSuccessAlert(`Descuento manual del ${actionToAuth.targetVal}% autorizado por Administrador.`);
+          setTimeout(() => setSuccessAlert(""), 2500);
+        } else if (actionToAuth.type === "EDIT_ITEM_PRICE" && actionToAuth.productId && actionToAuth.newPrice !== undefined) {
+          applyItemPriceChange(actionToAuth.productId, actionToAuth.newPrice);
         }
       }
       setActionToAuth(null);
@@ -661,7 +730,17 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
                 <div key={item.productId} className="p-4 flex items-center justify-between gap-4 hover:bg-gray-50/50 transition">
                   <div className="flex-1">
                     <span className="font-bold text-gray-900 text-xs block">{item.productName}</span>
-                    <span className="text-[10px] text-gray-400 font-mono">Ref: {item.productCode} • Unitario: ${item.sellPrice.toLocaleString("es-CO")}</span>
+                    <span className="text-[10px] text-gray-400 font-mono block mt-0.5 leading-none">
+                      Ref: {item.productCode} • Unitario:{" "}
+                      <button
+                        type="button"
+                        onClick={() => triggerEditItemPrice(item.productId, item.sellPrice)}
+                        title="Modificar precio (Excluye comisiones - Requiere PIN si es Vendedor)"
+                        className="text-indigo-600 hover:underline font-bold bg-transparent border-0 cursor-pointer p-0"
+                      >
+                        ${item.sellPrice.toLocaleString("es-CO")}
+                      </button>
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -1100,7 +1179,7 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
                   min={0}
                   max={90}
                   value={discountPercent}
-                  onChange={(e) => setDiscountPercent(Math.min(90, Number(e.target.value)))}
+                  onChange={(e) => handleDiscountChange(Math.min(90, Number(e.target.value)))}
                   className="w-10 bg-white/10 rounded px-1.5 text-center font-bold text-white font-mono text-[11px]"
                 />
                 <span>%</span>

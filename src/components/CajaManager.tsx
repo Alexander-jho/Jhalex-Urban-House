@@ -386,13 +386,27 @@ export function CajaManager({ currentRole, currentUserName }: CajaManagerProps) 
     setAdminPin("");
   };
 
+  const [selectedVendedorId, setSelectedVendedorId] = useState<string>("");
+
   const handleOpenBox = (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = db.openCashBox(openingBaseAmount, currentUserName, currentRole, openingDenoms);
+    const vList = db.getVendedores();
+    const selectedV = vList.find(v => v.id === selectedVendedorId);
+    const vName = selectedV ? selectedV.name : undefined;
+
+    const ok = db.openCashBox(
+      openingBaseAmount,
+      currentUserName,
+      currentRole,
+      openingDenoms,
+      selectedVendedorId || undefined,
+      vName
+    );
     if (ok) {
       refreshData();
       setShowOpenBoxForm(false);
       setOpeningDenoms(EMPTY_DENOMINATIONS);
+      setSelectedVendedorId("");
     }
   };
 
@@ -508,6 +522,18 @@ export function CajaManager({ currentRole, currentUserName }: CajaManagerProps) 
                 ABIERTA
               </span>
             </div>
+
+            {activeSession.vendedorName && (
+              <div className="bg-indigo-50/60 border border-indigo-100/50 rounded-xl p-3 text-xs flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-indigo-600 font-bold text-white flex items-center justify-center text-[11px] shrink-0">
+                  {activeSession.vendedorName.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <span className="font-bold text-gray-900 block leading-tight">{activeSession.vendedorName}</span>
+                  <span className="text-[9.5px] text-gray-500 block leading-none mt-0.5">Responsable del Turno</span>
+                </div>
+              </div>
+            )}
 
             <div className="text-center py-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-1">
               <span className="text-xs text-gray-400 font-semibold block uppercase">Dinero Neto Esperado</span>
@@ -1000,12 +1026,28 @@ export function CajaManager({ currentRole, currentUserName }: CajaManagerProps) 
                 </p>
               </div>
 
+              {/* Vendedor Employee Shift Assignment */}
+              <div className="space-y-1">
+                <label className="font-bold text-gray-600 block">Asignar Colaborador (Inicio de Turno)</label>
+                <select
+                  value={selectedVendedorId}
+                  onChange={(e) => setSelectedVendedorId(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 p-2.5 rounded-lg focus:bg-white focus:outline-none text-xs text-gray-800 font-medium"
+                >
+                  <option value="">-- Sin asignar (Almacén General / Otro) --</option>
+                  {db.getVendedores().filter(v => v.status === "ACTIVO").map(v => (
+                    <option key={v.id} value={v.id}>{v.name} ({v.cargo})</option>
+                  ))}
+                </select>
+                <p className="text-[9.5px] text-gray-400">Asocia esta caja con el colaborador responsable para arqueos cruzados.</p>
+              </div>
+
               {/* Count component */}
               <DenominationsInput value={openingDenoms} onChange={setOpeningDenoms} />
 
               <button
                 type="submit"
-                className="w-full bg-emerald-600 text-white py-2 rounded font-bold hover:bg-emerald-700 transition"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-bold transition text-xs shadow"
               >
                 Habilitar Caja Registradora
               </button>

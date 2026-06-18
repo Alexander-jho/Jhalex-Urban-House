@@ -116,8 +116,15 @@ export interface Vendedor {
   name: string;
   document: string;
   phone: string;
+  address: string;
+  cargo: string;
+  fechaIngreso: string;
   status: "ACTIVO" | "INACTIVO";
-  commissionRate: number; // Percentage, e.g. 5 for 5%
+  salarioFijo: number;
+  periodicidadPago: "semanal" | "quincenal" | "mensual";
+  fechaPago: string;
+  observaciones?: string;
+  turno?: string;
 }
 
 export interface Client {
@@ -272,6 +279,8 @@ export interface CashBoxSession {
   realCashDenominations?: CashDenominations;
   difference: number | null;
   status: "ABIERTA" | "CERRADA";
+  vendedorId?: string;
+  vendedorName?: string;
 }
 
 export interface Promotion {
