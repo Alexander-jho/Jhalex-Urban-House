@@ -11,13 +11,13 @@ const AppearanceContext = createContext<AppearanceContextType | undefined>(undef
 
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<AppearanceMode>(() => {
-    const saved = localStorage.getItem("jhalex_appearance_mode");
+    const saved = localStorage.getItem("smaj_appearance_mode");
     return (saved === "LIQUID" ? "LIQUID" : "CLEAR") as AppearanceMode;
   });
 
   const setMode = (newMode: AppearanceMode) => {
     setModeState(newMode);
-    localStorage.setItem("jhalex_appearance_mode", newMode);
+    localStorage.setItem("smaj_appearance_mode", newMode);
     // Also toggle high-level HTML classes for easy targeting
     const root = document.documentElement;
     if (newMode === "LIQUID") {

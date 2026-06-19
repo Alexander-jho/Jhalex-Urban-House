@@ -146,7 +146,7 @@ export default function App() {
         >
           <img 
             src={company.logo} 
-            alt="JHALEX BRANDING WATERMARK" 
+            alt="SMAJ BRANDING WATERMARK" 
             className="w-full h-auto object-contain select-none opacity-80"
             referrerPolicy="no-referrer"
           />
@@ -168,14 +168,14 @@ export default function App() {
             />
           ) : (
             <div className="w-9 h-9 rounded-xl bg-indigo-650 flex items-center justify-center font-bold text-sm tracking-wide bg-indigo-655 text-white">
-              JH
+              SM
             </div>
           )}
 
           <div>
             <div className="flex items-center gap-1.5 leading-none">
-              <span className="font-sans font-black tracking-wider text-xs uppercase text-indigo-400">JHALEX</span>
-              <span className="font-extrabold text-[10px] bg-indigo-650/40 text-indigo-300 px-1.5 py-0.5 rounded-md font-mono">PRO</span>
+              <span className="font-sans font-black tracking-widest text-xs uppercase text-indigo-400">SMAJ</span>
+              <span className="font-extrabold text-[10px] bg-indigo-650/40 text-indigo-300 px-1.5 py-0.5 rounded-md font-mono">URBAN</span>
             </div>
             <h1 className="text-sm font-bold text-gray-100 tracking-tight mt-0.5 uppercase">
               {company.name}
@@ -367,7 +367,7 @@ export default function App() {
           ? "bg-white/40 backdrop-blur-lg border-t border-white/50 text-slate-500" 
           : "bg-white border-t border-gray-250 text-gray-400"
       }`}>
-        <span>© 2026 JHALEX URBAN HOUSE PRO — Suite Integral de Comercio.</span>
+        <span>© 2026 SMAJ URBAN CLOTHING — Suite Premium de Comercio de Alta Gama.</span>
         <span className="font-mono tracking-wider text-[10px] mt-1 sm:mt-0">
           Base de Datos: SQLITE Emu (Offline Local Storage) • Versión 1.2.0
         </span>

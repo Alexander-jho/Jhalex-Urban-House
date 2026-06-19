@@ -505,7 +505,7 @@ export function ProveedoresCompras({ currentRole, currentUserName }: Proveedores
                     required
                     value={supForm.name || ""}
                     onChange={(e) => setSupForm(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Ej. Distribuidora JHALEX Mayorista"
+                    placeholder="Ej. Distribuidora SMAJ Mayorista"
                     className="w-full bg-white border border-gray-250 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
@@ -546,7 +546,7 @@ export function ProveedoresCompras({ currentRole, currentUserName }: Proveedores
                     type="email"
                     value={supForm.email || ""}
                     onChange={(e) => setSupForm(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Ej. ventas@jhalexmayorista.com"
+                    placeholder="Ej. ventas@smajmayorista.com"
                     className="w-full bg-white border border-gray-250 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black font-mono"
                   />
                 </div>

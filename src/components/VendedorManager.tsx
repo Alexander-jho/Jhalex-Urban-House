@@ -156,7 +156,8 @@ export function VendedorManager({ currentRole, currentUserName }: VendedorManage
 
   const productsSoldList = useMemo(() => {
     if (!selectedStats) return [];
-    return Object.values(selectedStats.productsSold).sort((a, b) => b.qty - a.qty);
+    const arr = Object.values(selectedStats.productsSold) as Array<{ name: string; qty: number; code: string; totalVal: number }>;
+    return arr.sort((a, b) => b.qty - a.qty);
   }, [selectedStats]);
 
   const filteredSalesForSelectedVendor = useMemo(() => {

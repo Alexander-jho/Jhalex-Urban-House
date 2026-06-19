@@ -1,6 +1,6 @@
 {
-  "name": "JHALEX URBAN HOUSE PRO",
-  "description": "Sistema integral de ventas, inventario, administración y control financiero profesional 100% offline para tiendas de moda urbana.",
+  "name": "SMAJ Urban Clothing",
+  "description": "Sistema integral de ventas, inventario, administración y control financiero premium 100% offline para tiendas de moda streetwear urbana de alta gama.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

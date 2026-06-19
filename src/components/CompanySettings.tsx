@@ -78,7 +78,7 @@ export function CompanySettings({ currentRole, currentUserName, onCompanyChange 
     if (onCompanyChange) {
       onCompanyChange();
     }
-    setSuccess("Los datos de JHALEX URBAN HOUSE se actualizaron correctamente.");
+    setSuccess("Los datos de SMAJ URBAN CLOTHING se actualizaron correctamente.");
     setTimeout(() => {
       setSuccess("");
     }, 3000);
@@ -193,7 +193,7 @@ export function CompanySettings({ currentRole, currentUserName, onCompanyChange 
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
-          Marca de Agua JHALEX
+          Marca de Agua SMAJ
         </button>
       </div>
 
@@ -309,7 +309,7 @@ export function CompanySettings({ currentRole, currentUserName, onCompanyChange 
                   <input
                     type="text"
                     value={config.razonSocial || ""}
-                    placeholder="Ej. JHALEX URBAN HOUSE S.A.S."
+                    placeholder="Ej. SMAJ URBAN CLOTHING S.A.S."
                     onChange={(e) => setConfig(prev => ({ ...prev, razonSocial: e.target.value }))}
                     className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black"
                   />
@@ -421,7 +421,7 @@ export function CompanySettings({ currentRole, currentUserName, onCompanyChange 
                 <input
                   type="email"
                   value={config.correoEmpresarial || ""}
-                  placeholder="facturacion@jhalexurbanhouse.com"
+                  placeholder="facturacion@smajurbanclothing.com"
                   onChange={(e) => setConfig(prev => ({ ...prev, correoEmpresarial: e.target.value }))}
                   className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
@@ -610,7 +610,7 @@ export function CompanySettings({ currentRole, currentUserName, onCompanyChange 
                 <div className="flex items-center gap-2 mt-5 p-3 bg-indigo-50/40 rounded-lg border border-indigo-150">
                   <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
                   <span className="text-[10px] text-indigo-800 leading-tight">
-                    Módulo de transmisión xml activa. Las facturas emitidas por POS de JHALEX se conectarán con el CUFE corporativo simulado.
+                    Módulo de transmisión xml activa. Las facturas emitidas por POS de SMAJ se conectarán con el CUFE corporativo simulado.
                   </span>
                 </div>
               </div>

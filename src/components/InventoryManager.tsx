@@ -727,7 +727,7 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
             <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs text-indigo-800 space-y-2">
               <span className="font-bold flex items-center gap-1">Tipos de Productos</span>
               <p className="text-indigo-600 leading-relaxed text-[11px]">
-                Añadir categorías permite clasificar de forma óptima los productos de JHALEX, permitiendo filtros rápidos en el POS y optimización de facturación.
+                Añadir categorías permite clasificar de forma óptima los productos de SMAJ, permitiendo filtros rápidos en el POS y optimización de facturación.
               </p>
             </div>
           </div>
@@ -806,7 +806,7 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
             <div className="bg-gray-900 text-white p-5 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-lg">{isEditing ? "Modificar Ficha de Producto" : "Registrar Nuevo Producto Urbano"}</h3>
-                <p className="text-xs text-gray-400">Jhalex Urban House Pro - Sistema de Codificación</p>
+                <p className="text-xs text-gray-400">SMAJ Urban Clothing - Sistema de Codificación</p>
               </div>
               <button
                 onClick={() => setShowForm(false)}
@@ -1022,7 +1022,7 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
                   <input
                     type="text"
                     value={formProduct.brand || ""}
-                    placeholder="Ej. JHALEX"
+                    placeholder="Ej. SMAJ"
                     onChange={(e) => setFormProduct(prev => ({ ...prev, brand: e.target.value }))}
                     className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none"
                   />
@@ -1293,7 +1293,7 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
             printWindow.document.write(`
               <html>
                 <head>
-                  <title>Imprimir Etiquetas JHALEX</title>
+                  <title>Imprimir Etiquetas SMAJ</title>
                   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
                   <script src="https://cdn.tailwindcss.com"></script>
                   <style>
@@ -1469,8 +1469,8 @@ export function InventoryManager({ currentRole, currentUserName }: InventoryMana
                     className={`${cardStyle} ${alignmentClass} w-full max-w-[245px] shadow-sm`}
                   >
                     <div className={headerStyle}>
-                      <span className={brandStyle}>JHALEX URBAN HOUSE</span>
-                      <span className="text-[7px] font-mono tracking-widest block text-gray-400 mt-0.5">ESTILO URBANO</span>
+                      <span className={brandStyle}>SMAJ URBAN CLOTHING</span>
+                      <span className="text-[7px] font-mono tracking-widest block text-gray-400 mt-0.5 uppercase tracking-widest">ESTILO STREETWEAR PREMIUM</span>
                     </div>
 
                     <div className="space-y-1 w-full">

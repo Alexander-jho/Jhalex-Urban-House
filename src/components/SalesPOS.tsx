@@ -360,7 +360,7 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
     setTimeout(() => setSuccessAlert(""), 2000);
   };
 
-  // JHALEX OCCASIONAL CONVERSION TO LOYALTY SYSTEM
+  // SMAJ OCCASIONAL CONVERSION TO LOYALTY SYSTEM
   const convertOccasionalToRegistered = (sale: Sale) => {
     if (!sale) return;
     const documentNum = sale.occasionalClientDocNum || sale.clientId.replace("TEMP_", "");
@@ -870,7 +870,7 @@ export function SalesPOS({ currentRole, currentUserName }: SalesPOSProps) {
               </select>
             </div>
 
-            {/* JHALEX PREMIUM CLIENT CATEGORY SELECTOR */}
+            {/* SMAJ PREMIUM CLIENT CATEGORY SELECTOR */}
             <div className="space-y-3 pt-2 border-t border-gray-100">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Categoría de Facturación</span>
               <div className="grid grid-cols-3 gap-1 bg-gray-50 p-1 rounded-xl border border-gray-100">

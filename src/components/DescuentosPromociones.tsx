@@ -89,7 +89,7 @@ export function DescuentosPromociones({ currentRole, currentUserName }: Descuent
         <div>
           <h2 className="text-xl font-bold text-gray-900 tracking-tight">Descuentos & Promociones de Temporada</h2>
           <p className="text-xs text-gray-500 mt-1">
-            Gestione las campañas de mercadeo activas de JHALEX URBAN HOUSE. El Almacén aplicará estas pautas de descuento según la categoría participante.
+            Gestione las campañas de mercadeo activas de SMAJ URBAN CLOTHING. El Almacén aplicará estas pautas de descuento según la categoría participante.
           </p>
         </div>
         <button

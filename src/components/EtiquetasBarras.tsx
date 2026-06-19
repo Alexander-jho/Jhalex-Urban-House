@@ -132,7 +132,7 @@ export function EtiquetasBarras({ currentRole, currentUserName }: EtiquetasBarra
         printWindow.document.write(`
           <html>
             <head>
-              <title>Imprimir Etiquetas JHALEX</title>
+              <title>Imprimir Etiquetas SMAJ</title>
               <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
               <script src="https://cdn.tailwindcss.com"></script>
               <style>
@@ -615,8 +615,8 @@ export function EtiquetasBarras({ currentRole, currentUserName }: EtiquetasBarra
                   >
                     {/* Header */}
                     <div className={styleSet.header}>
-                      <span className={styleSet.brand}>JHALEX URBAN HOUSE</span>
-                      <span className="text-[8px] font-mono tracking-widest block text-gray-400 mt-0.5">DESDE CÚCUTA</span>
+                      <span className={styleSet.brand}>SMAJ URBAN CLOTHING</span>
+                      <span className="text-[8px] font-mono tracking-widest block text-gray-400 mt-0.5 animate-pulse">DESDE MEDELLÍN</span>
                     </div>
 
                     {/* Metadata parameters */}

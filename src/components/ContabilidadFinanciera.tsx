@@ -100,7 +100,7 @@ export function ContabilidadFinanciera({ currentRole, currentUserName }: Contabi
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `JHALEX_BACKUP_SQLITE_${new Date().toISOString().split("T")[0]}.json`;
+    link.download = `SMAJ_BACKUP_SQLITE_${new Date().toISOString().split("T")[0]}.json`;
     link.click();
     
     // Log audit
@@ -128,7 +128,7 @@ export function ContabilidadFinanciera({ currentRole, currentUserName }: Contabi
             window.location.reload();
           }, 1500);
         } else {
-          setErrorText("Error de lectura: El archivo proporcionado no tiene la estructura de JHALEX PRO.");
+          setErrorText("Error de lectura: El archivo proporcionado no tiene la estructura de SMAJ.");
         }
       };
       reader.readAsText(file);
@@ -162,7 +162,7 @@ export function ContabilidadFinanciera({ currentRole, currentUserName }: Contabi
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.href = encodedUri;
-    link.download = `JHALEX_INVENTARIO_VALORIZADO_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `SMAJ_INVENTARIO_VALORIZADO_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
   };
 
@@ -357,7 +357,7 @@ export function ContabilidadFinanciera({ currentRole, currentUserName }: Contabi
               pop.document.write(`
                 <html>
                   <head>
-                    <title>Reporte Financiero JHALEX PRO</title>
+                    <title>Reporte Financiero SMAJ URBAN CLOTHING</title>
                     <style>
                       body { font-family: sans-serif; padding: 40px; color: #111; line-height: 1.5; }
                       .financial-grid { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 20px; }
@@ -367,7 +367,7 @@ export function ContabilidadFinanciera({ currentRole, currentUserName }: Contabi
                     </style>
                   </head>
                   <body>
-                    <h2>JHALEX URBAN HOUSE PRO - DOSSIER FINANCIERO</h2>
+                    <h2>SMAJ URBAN CLOTHING - DOSSIER FINANCIERO</h2>
                     <p style="font-size:11px;color:#666;">Cerrado al: ${new Date().toLocaleString("es-CO")}</p>
                     <div>${markup}</div>
                     <script>window.print();</script>

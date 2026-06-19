@@ -28,23 +28,23 @@ import {
 
 // Keys for LocalStorage
 const KEYS = {
-  COMPANY: "jhalex_company",
-  PRODUCTS: "jhalex_products",
-  HISTORY: "jhalex_history",
-  VENDEDORES: "jhalex_vendedores",
-  CLIENTES: "jhalex_clientes",
-  SALES: "jhalex_sales",
-  TRANSACTIONS: "jhalex_transactions",
-  SESSIONS: "jhalex_sessions",
-  PROMOTION: "jhalex_promotion",
-  AUDITS: "jhalex_audits",
-  VISUAL_THEME: "jhalex_theme",
-  ACTIVE_USER: "jhalex_active_user",
-  CATEGORIES: "jhalex_categories",
-  DRAWER_OPENINGS: "jhalex_drawer_openings",
-  DRAWER_CONFIG: "jhalex_drawer_config",
-  PROVEEDORES: "jhalex_proveedores",
-  COMPRAS: "jhalex_compras"
+  COMPANY: "smaj_company",
+  PRODUCTS: "smaj_products",
+  HISTORY: "smaj_history",
+  VENDEDORES: "smaj_vendedores",
+  CLIENTES: "smaj_clientes",
+  SALES: "smaj_sales",
+  TRANSACTIONS: "smaj_transactions",
+  SESSIONS: "smaj_sessions",
+  PROMOTION: "smaj_promotion",
+  AUDITS: "smaj_audits",
+  VISUAL_THEME: "smaj_theme",
+  ACTIVE_USER: "smaj_active_user",
+  CATEGORIES: "smaj_categories",
+  DRAWER_OPENINGS: "smaj_drawer_openings",
+  DRAWER_CONFIG: "smaj_drawer_config",
+  PROVEEDORES: "smaj_proveedores",
+  COMPRAS: "smaj_compras"
 };
 
 // INITIAL PRE-SET CATEGORIES
@@ -89,28 +89,28 @@ const INITIAL_CATEGORIES: ProductTypeCategory[] = [
 
 // Initial Pre-seed Data
 const INITIAL_COMPANY: CompanyConfig = {
-  name: "JHALEX URBAN HOUSE",
+  name: "SMAJ URBAN CLOTHING",
   logo: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=200&h=200&fit=crop&q=80",
-  nit: "901.442.238",
-  address: "Avenida 10 # 24-85 Barrio Centro",
-  city: "Cúcuta, N.S.",
-  phone: "312 345 6789",
-  email: "contacto@jhalexurbanhouse.com",
-  responsible: "Jhalex Alexander",
-  commercialInfo: "Almacén Exclusivo de Moda Urbana & Calzado Premium",
-  invoiceMessage: "Gracias por tu compra. JHALEX viste tu estilo urbano. ¡Vuelve pronto!",
+  nit: "901.882.356-2",
+  address: "Calle 10A # 36-32 El Poblado",
+  city: "Medellín, Colombia",
+  phone: "315 888 7722",
+  email: "hola@smajurbanclothing.com",
+  responsible: "Juan Camilo Serna",
+  commercialInfo: "Firma de Alta Moda Streetwear y Ropa Urbana Premium Colombiana",
+  invoiceMessage: "Gracias por tu compra en SMAJ. Tu estilo urbano define las calles. ¡Sigue con nosotros!",
   
   // Colombia Legal Defaults
-  razonSocial: "Jhalex Urban House S.A.S.",
+  razonSocial: "Smaj Urban Clothing S.A.S.",
   tipoSociedad: "Sociedad por Acciones Simplificada",
-  dv: "4",
-  ccmercio: "Cámara de Comercio de Cúcuta",
-  matriculaMercantil: "MC-20240985-11",
-  fechaRegistroCC: "2024-03-15",
-  ciudadRegistroCC: "Cúcuta",
-  direccionComercial: "Avenida 10 # 24-85 Barrio Centro",
-  telefonoEmpresarial: "312 345 6789",
-  correoEmpresarial: "facturacion@jhalexurbanhouse.com",
+  dv: "8",
+  ccmercio: "Cámara de Comercio de Medellín",
+  matriculaMercantil: "MC-20261192-04",
+  fechaRegistroCC: "2025-05-18",
+  ciudadRegistroCC: "Medellín",
+  direccionComercial: "Calle 10A # 36-32 El Poblado",
+  telefonoEmpresarial: "315 888 7722",
+  correoEmpresarial: "facturacion@smajurbanclothing.com",
   
   // Tributaria configuration Defaults
   regimenTributario: "Régimen Común (Responsable de IVA)",
@@ -120,13 +120,13 @@ const INITIAL_COMPANY: CompanyConfig = {
   
   // Facturación electrónica Defaults
   proveedorTecnologico: "CODIAN S.A.S. (Autorizado DIAN)",
-  resolucionDian: "187640398271",
-  resolucionFecha: "2026-01-10",
-  prefijoFactura: "JUH",
+  resolucionDian: "187640582931",
+  resolucionFecha: "2026-02-15",
+  prefijoFactura: "SMAJ",
   numeracionDesde: 1000,
   numeracionHasta: 9999,
   numeracionSiguiente: 1004,
-  dianKey: "dian_prod_sec_key_98a7cbd7f7c3c2f",
+  dianKey: "dian_prod_sec_key_77a2cbd8f9c1c4e",
   dianEnvironment: "PRUEBAS",
   
   // Watermark Options Defaults
@@ -185,7 +185,7 @@ const PASSWORDS = {
 
 // Database Initialization helper
 export function initDB(): void {
-  const DB_RESET_KEY = "jhalex_db_reset_v5";
+  const DB_RESET_KEY = "smaj_db_reset_v5";
   if (localStorage.getItem(DB_RESET_KEY) !== "true") {
     localStorage.removeItem(KEYS.COMPANY);
     localStorage.removeItem(KEYS.PRODUCTS);
@@ -1070,7 +1070,7 @@ export const db = {
   },
 
   getRoundingConfig: (): { enabled: boolean; step: number } => {
-    const val = localStorage.getItem("jhalex_rounding_config");
+    const val = localStorage.getItem("smaj_rounding_config");
     if (!val) {
       return { enabled: true, step: 100 };
     }
@@ -1078,7 +1078,7 @@ export const db = {
   },
 
   saveRoundingConfig: (config: { enabled: boolean; step: number }): void => {
-    localStorage.setItem("jhalex_rounding_config", JSON.stringify(config));
+    localStorage.setItem("smaj_rounding_config", JSON.stringify(config));
   },
 
   getProveedores: (): Supplier[] => {
