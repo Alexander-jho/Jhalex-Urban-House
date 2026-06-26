@@ -19,6 +19,7 @@ import { AuditoriaLogs } from "./components/AuditoriaLogs";
 import { CompanySettings } from "./components/CompanySettings";
 import { EtiquetasBarras } from "./components/EtiquetasBarras";
 import { ProveedoresCompras } from "./components/ProveedoresCompras";
+import { AsistenteAI } from "./components/AsistenteAI";
 import { useAppearance } from "./components/AppearanceContext";
 
 import {
@@ -36,7 +37,8 @@ import {
   Sparkles,
   WifiOff,
   Barcode,
-  Truck
+  Truck,
+  Brain
 } from "lucide-react";
 
 export default function App() {
@@ -76,6 +78,7 @@ export default function App() {
   // Setup tabs config to match roles
   const tabsList = [
     { id: "dash", label: "Consola de Métricas", icon: LayoutDashboard, role: UserRole.ADMIN },
+    { id: "ai_advisor", label: "Consultor IA", icon: Brain, role: UserRole.ADMIN },
     { id: "pos", label: "Punto de Venta POS", icon: ShoppingBag, role: UserRole.SELLER }, // both can access POS
     { id: "inventory", label: "Inventarios & Moda", icon: Layers, role: UserRole.ADMIN },
     { id: "thirdparty", label: "Proveedores & Compras", icon: Truck, role: UserRole.ADMIN },
@@ -280,6 +283,13 @@ export default function App() {
         {/* MAIN PANEL CONTENT LOADER WRAPPER */}
         <main className="flex-1 p-6 overflow-y-auto z-10 relative">
           {activeTab === "dash" && selectedRole === UserRole.ADMIN && <ReportesDash />}
+          
+          {activeTab === "ai_advisor" && selectedRole === UserRole.ADMIN && (
+            <AsistenteAI
+              currentRole={selectedRole}
+              currentUserName={userName}
+            />
+          )}
           
           {activeTab === "pos" && (
             <SalesPOS
